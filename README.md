@@ -386,36 +386,77 @@ quast.py "$FASTA" -o quast_results
 
 ### 4.2 DIAMOND BLASTx
 
-The assembly was split into five parts, each searched in a separate array job.
+The assembly was split into six parts, each searched in a separate array job. The number was defined as #SBATCH --array=0-5 and ran as sbatch --array=0-5 diamond.blastx.sh
 
 ```bash
 QUERY=genome.fasta
-DB=nr.dmnd
+DIAMOND_PATH=diamond
+DB_PATH=nr.dmnd
+OUTPUT_DIR=Output_directory
 SPLIT_DIR=split_queries
-OUT_DIR=split_output
-N_PARTS=5
+SPLIT_OUT=split_output
+PREFIX="pristina"
 
-mkdir -p "$SPLIT_DIR" "$OUT_DIR"
+mkdir -p "$OUTPUT_DIR" "$SPLIT_DIR" "$SPLIT_OUT"
 
-# split into N_PARTS files with equal numbers of sequences
-total=$(grep -c '^>' "$QUERY")
-awk -v n="$N_PARTS" -v per=$(( total / n )) -v rem=$(( total % n )) -v dir="$SPLIT_DIR" '
-    BEGIN { part = 1 }
-    /^>/  { if (count >= per + (part <= rem ? 1 : 0)) { part++; count = 0 }; count++ }
-          { print > (dir "/query_part_" part ".fasta") }' "$QUERY"
+echo "----------------------------------------"
+echo " STEP 1: Split query file (only once) "
+echo "----------------------------------------"
 
-# one part per SLURM array task (0-4)
-PART=$(ls "$SPLIT_DIR"/query_part_*.fasta | sed -n "$((SLURM_ARRAY_TASK_ID + 1))p")
-diamond blastx \
-    --query "$PART" \
-    --db "$DB" \
-    --evalue 1e-5 \
-    --max-hsps 1 \
-    --max-target-seqs 1 \
-    --outfmt 6 qseqid bitscore qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore \
-    --more-sensitive \
-    --threads 32 \
-    --out "$OUT_DIR/part${SLURM_ARRAY_TASK_ID}.out"
+if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]; then
+    echo "Splitting query file..."
+    num_files=5
+    total_seqs=$(grep -c '^>' "$QUERY")
+    seq_per_file=$(( total_seqs / num_files ))
+    remainder=$(( total_seqs % num_files ))
+
+    awk -v num_files="$num_files" -v seq_per_file="$seq_per_file" -v remainder="$remainder" -v outdir="$SPLIT_DIR" '
+        BEGIN { file_idx=1; seq_count=0 }
+        /^>/ {
+            if (seq_count >= seq_per_file + (file_idx <= remainder ? 1 : 0)) {
+                file_idx++
+                seq_count=0
+            }
+            seq_count++
+        }
+        { print > (outdir "/query_part_" file_idx ".fasta") }
+    ' "$QUERY"
+
+    ls "$SPLIT_DIR"/query_part_*.fasta > "$SPLIT_DIR/parts_list.txt"
+    echo "Splitting complete: $(wc -l < "$SPLIT_DIR/parts_list.txt") files created."
+fi
+
+# Wait a bit for file creation to propagate
+sleep 60
+
+echo "----------------------------------------"
+echo " STEP 2: Run Diamond blastx "
+echo "----------------------------------------"
+
+PART_LIST_FILE="$SPLIT_DIR/parts_list.txt"
+QUERY_FILE=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" "$PART_LIST_FILE")
+OUTFILE="$SPLIT_OUT/${PREFIX}_part${SLURM_ARRAY_TASK_ID}.out"
+
+echo "------------------------------------------------"
+echo "DIAMOND BLASTx job started for task $SLURM_ARRAY_TASK_ID on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "------------------------------------------------"
+
+"$DIAMOND_PATH" blastx
+--query "$QUERY_FILE" \
+--db "$DB_PATH" \
+--evalue 1e-5 \
+--max-hsps 1 \
+--max-target-seqs 1 \
+--outfmt 6 qseqid bitscore qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore \
+--out "$OUTFILE" 2 \
+--more-sensitive \
+--threads 32
+
+echo "------------------------------------------------"
+echo "Task $SLURM_ARRAY_TASK_ID completed: $OUTFILE"
+echo "Finished at: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "------------------------------------------------"
+
 ```
 
 ### 4.3 Read coverage
