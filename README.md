@@ -386,7 +386,7 @@ quast.py "$FASTA" -o quast_results
 
 ### 4.2 DIAMOND BLASTx
 
-The assembly was split into six parts, each searched in a separate array job. The number was defined as #SBATCH --array=0-5 and ran as sbatch --array=0-5 diamond.blastx.sh
+The assembly was split into six parts, with each part searched in a separate array job. Six array jobs were specified using #SBATCH --array=0-5 and submitted with sbatch --array=0-5 diamond.blastx.sh.
 
 ```bash
 QUERY=genome.fasta
@@ -405,7 +405,7 @@ echo "----------------------------------------"
 
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]; then
     echo "Splitting query file..."
-    num_files=5
+    num_files=6
     total_seqs=$(grep -c '^>' "$QUERY")
     seq_per_file=$(( total_seqs / num_files ))
     remainder=$(( total_seqs % num_files ))
@@ -463,12 +463,24 @@ echo "------------------------------------------------"
 
 ```bash
 GENOME=genome.fasta
-HIFI=hifi_ccs.fastq
+READS_FQ=hifi_ccs.fastq
+OUTPUT_DIR=Output_directory
 
-minimap2 -ax map-hifi -t 32 "$GENOME" "$HIFI" -o genome.sam
-samtools view -S -b genome.sam > genome.bam
-samtools sort -@ 32 genome.bam -o genome.sorted.bam
-samtools index genome.sorted.bam
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+
+minimap2 -ax map-hifi "$QUERY" "$READS_FQ" -t 32 -o "$OUTPUT_DIR/${BASENAME}.sam" 2>&1 | tee ./alignments.log
+
+# Convert SAM to BAM, sort and index
+samtools view -S -b "$OUTPUT_DIR/${BASENAME}.sam" > "$OUTPUT_DIR/${BASENAME}.bam"
+samtools sort "$OUTPUT_DIR/${BASENAME}.bam" -@ 32 -o "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+samtools index "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+
+echo "Alignment completed on $(date '+%Y-%m-%d %H:%M:%S')!"
+echo "Results are stored in \"$OUTPUT_DIR\""
 ```
 
 ### 4.4 BlobTools, BUSCO and snail plot
