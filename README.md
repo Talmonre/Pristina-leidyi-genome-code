@@ -488,6 +488,7 @@ echo "Results are stored in \"$OUTPUT_DIR\""
 
 Taxify was run on the DIAMOND results to assign taxonomy to the assembled sequences. The resulting taxonomic assignments were then used as input for BlobTools.
 
+```bash
 BLAST_OUTPUT=blastx.tsv
 DB=prot.accession2taxid
 OUTPUT_DIR=Output_directory
@@ -499,6 +500,7 @@ cd "$OUTPUT_DIR" || exit
 blobtools taxify -f "$BLAST_OUTPUT" -c 2 -m "$DB" -s 1 -t 2
 
 echo "Taxify job completed!"
+```
 
 ### 4.5 BlobTools, BUSCO and snail plot
 
