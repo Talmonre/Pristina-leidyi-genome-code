@@ -504,30 +504,63 @@ echo "Taxify job completed!"
 
 ### 4.5 BlobTools, BUSCO and snail plot
 
-Diamond blastx hits were assigned taxonomy and combined with read coverage in BlobTools. Genome completeness was assessed with BUSCO and summarised in a BlobToolKit snail plot.
+DIAMOND BLASTx taxonomic assignments and read coverage were combined in BlobTools to assess the assembly. Assembly completeness was assessed using BUSCO, and key assembly metrics were summarised in a BlobToolKit snail plot.
 
 ```bash
-GENOME=genome.fasta
-BLAST_HITS=blastp_for_taxify.tsv
-TAXIFIED=blastp_taxified.out
-BAM=genome.sorted.bam
-NAME=genome
+QUERY=genome.fasta
+TAXIFY_OUTPUT=taxified.out
+DB=nodesDB.txt
+SORTED_BAM=genome.sorted.bam
+OUTPUT_DIR=Output_directory
+BUSCO_DIR=Busco_output_directory
+BUSCO_DB=metazoa_odb10
+SNAILPLOT_DIR=Snailplot_directory
+BLOB_DIR=BlobDir_directory
 
-# BlobTools
-blobtools taxify -f "$BLAST_HITS" -c 2 -m prot.accession2taxid -s 1 -t 2
-blobtools create -i "$GENOME" -t "$TAXIFIED" --db nodesDB.txt -b "$BAM" \
-                 --title "${NAME}.blobplot" -o "${NAME}.blobplot"
-blobtools view -i "${NAME}.blobplot.blobDB.json" -r phylum -o blobplot.Phylum_cov --cov
-blobtools plot -i "${NAME}.blobplot.blobDB.json" -r phylum -o blobplot.Phylum_comb --format pdf
-blobtools plot -i "${NAME}.blobplot.blobDB.json" -r phylum -o blobplot.Phylum_multi --format pdf --multiplot
+mkdir "$OUTPUT_DIR" "$BUSCO_DIR" "$BLOB_DIR"
+cd "$OUTPUT_DIR" || exit
 
-# BUSCO
-busco -i "$GENOME" -l metazoa_odb10 -o "${NAME}_BUSCO" -m geno -c 32
+echo "########################################"
+echo "# 1. BLOBTOOLS PLOTTING (v1)"
+echo "########################################"
 
-# BlobToolKit snail plot
-blobtools create --fasta "$GENOME" BlobDir
-blobtools add --busco "${NAME}_BUSCO/run_metazoa_odb10/full_table.tsv" BlobDir
-blobtools view --plot --view snail BlobDir
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+
+echo "Creating blobplot"
+blobtools create -i "$QUERY" -t "$TAXIFY_OUTPUT" --db "$DB" -b "$SORTED_BAM" --title ${BASENAME}.blobplot -o "$OUTPUT_DIR"/${BASENAME}.blobplot
+
+echo "Generating tabular summary"
+blobtools view -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_cov" --cov
+
+echo "Plotting: Single plot per phylum"
+blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_comb" --format pdf
+
+echo "Plotting: Multiplot"
+blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_multi" --format pdf --multiplot
+
+echo "Blobplots completed!"
+
+#echo "########################################"
+#echo "# 2. BUSCO ANALYSIS"
+#echo "########################################"
+
+busco -i "$QUERY" -l "$BUSCO_DB" -o "${BASENAME}_BUSCO" -m geno -c 32
+mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
+
+echo "########################################"
+echo "# 3. SNAILPLOT USING BLOBTOOLKIT (v2)"
+echo "########################################"
+
+cd "$SNAILPLOT_DIR"
+
+blobtools create --fasta "$QUERY" "$BLOB_DIR"
+blobtools add --busco "$BUSCO_DIR/${BASENAME}_BUSCO/run_metazoa_odb10/full_table.tsv" "$BLOB_DIR"
+blobtools view --plot --view snail "$BLOB_DIR"
+
+echo "Snail plot created in $SNAILPLOT_DIR"
+
+echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 ```
 
 ## 5. Repeat annotation and masking
