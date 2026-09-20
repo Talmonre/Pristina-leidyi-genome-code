@@ -541,9 +541,9 @@ blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o 
 
 echo "Blobplots completed!"
 
-#echo "########################################"
-#echo "# 2. BUSCO ANALYSIS"
-#echo "########################################"
+echo "########################################"
+echo "# 2. BUSCO ANALYSIS"
+echo "########################################"
 
 busco -i "$QUERY" -l "$BUSCO_DB" -o "${BASENAME}_BUSCO" -m geno -c 32
 mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
