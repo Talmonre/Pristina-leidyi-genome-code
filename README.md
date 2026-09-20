@@ -8,6 +8,10 @@ The sequencing data, assembly and annotation are available from NCBI under the a
 
 The analyses were run on the NeSI and University of Otago SLURM clusters. In the code below, cluster-specific settings (job headers, module and conda environment loading, absolute paths) have been removed. Input and output files are given generic names, set as variables at the top of each block. Unless stated otherwise, programs were run with default settings.
 
+## Code authorship and contributions
+
+This repository was developed by MB and KA. MB contributed to Sections 1-3. KA contributed to Sections 4-10.
+
 ## Contents
 
 - [Software](#software)
