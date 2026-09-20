@@ -462,7 +462,7 @@ echo "------------------------------------------------"
 ### 4.3 Read coverage
 
 ```bash
-GENOME=genome.fasta
+QUERY=genome.fasta
 READS_FQ=hifi_ccs.fastq
 OUTPUT_DIR=Output_directory
 
