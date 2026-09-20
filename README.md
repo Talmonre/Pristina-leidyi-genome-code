@@ -10,7 +10,7 @@ The analyses were run on the NeSI and University of Otago SLURM clusters. In the
 
 ## Code authorship and contributions
 
-This repository was developed by MB and KA. MB contributed to Sections 1-3. KA contributed to Sections 4-10.
+This repository was developed by MAB and KA. MAB contributed to Sections 1-3. KA contributed to Sections 4-10.
 
 ## Contents
 
