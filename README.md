@@ -78,7 +78,8 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1-3. KA
 | Python / NumPy / Matplotlib | 3.10.14 / 1.26.4 / 3.9.1 | 3 |
 | QUAST | 5.3.0 | 4 |
 | DIAMOND | 2.0.13 | 4, 7 |
-| BlobTools / BlobToolKit | – | 4 |
+| BlobTools | – | 4 |
+| BlobToolKit | – | 4 |
 | BUSCO (metazoa_odb10) | 5.8.2 | 4, 6 |
 | EDTA | 2.0.0 | 5 |
 | RepeatModeler / RepeatMasker | 2.0.6 / 4.1.8 | 5 |
