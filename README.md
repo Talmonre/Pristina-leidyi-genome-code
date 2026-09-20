@@ -1,4 +1,4 @@
-# *Pristina leidyi* genome – code
+# Observations on the genome of selectively asexual organism *Pristina leidyi*
 
 Code for the genome assembly, annotation and comparative analyses in:
 
