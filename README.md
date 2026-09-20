@@ -483,9 +483,25 @@ echo "Alignment completed on $(date '+%Y-%m-%d %H:%M:%S')!"
 echo "Results are stored in \"$OUTPUT_DIR\""
 ```
 
-### 4.4 BlobTools, BUSCO and snail plot
+### 4.4 Taxify
 
-BLASTp hits of the predicted proteins (section 7) were assigned taxonomy and combined with read coverage in BlobTools. Genome completeness was assessed with BUSCO and summarised in a BlobToolKit snail plot.
+Taxify was run on the DIAMOND results to assign taxonomy to the assembled sequences. The resulting taxonomic assignments were then used as input for BlobTools.
+
+BLAST_OUTPUT=blastx.tsv
+DB=prot.accession2taxid
+OUTPUT_DIR=Output_directory
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+blobtools taxify -f "$BLAST_OUTPUT" -c 2 -m "$DB" -s 1 -t 2
+
+echo "Taxify job completed!"
+
+### 4.5 BlobTools, BUSCO and snail plot
+
+Diamond blastx hits were assigned taxonomy and combined with read coverage in BlobTools. Genome completeness was assessed with BUSCO and summarised in a BlobToolKit snail plot.
 
 ```bash
 GENOME=genome.fasta
