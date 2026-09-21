@@ -361,6 +361,13 @@ plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 
 ### 4.1 Assembly statistics
 
+Assembly quality was assessed using QUAST
+
+```bash
+quast.py "$FASTA" -o quast_results
+```
+Scaffold length statistics were also calculated from the final assembly, including total assembly length, scaffold count, average and largest scaffold length, and N50–N100 values.
+
 ```bash
 FASTA=genome.fasta
 OUT=genome.stats.txt
@@ -381,9 +388,9 @@ awk '/^>/ {if (len) print len; len = 0; next} {len += length($0)} END {print len
             }
             printf "\nN_count = %d\nGaps = %d\n", n_1kb, gaps
         }' > "$OUT"
-
-quast.py "$FASTA" -o quast_results
 ```
+
+
 
 ### 4.2 DIAMOND BLASTx
 
@@ -502,7 +509,7 @@ blobtools taxify -f "$BLAST_OUTPUT" -c 2 -m "$DB" -s 1 -t 2
 echo "Taxify job completed!"
 ```
 
-### 4.5 BlobTools, BUSCO and snail plot
+### 4.5 BlobTools, BUSCO and snail plot (BlobToolkit)
 
 DIAMOND BLASTx taxonomic assignments and read coverage were combined in BlobTools to assess the assembly. Assembly completeness was assessed using BUSCO, and key assembly metrics were summarised in a BlobToolKit snail plot.
 
