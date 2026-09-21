@@ -364,33 +364,94 @@ plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 Assembly quality was assessed using QUAST
 
 ```bash
+FASTA=genome.fasta
+
 quast.py "$FASTA" -o quast_results
 ```
 Scaffold length statistics were also calculated from the final assembly, including total assembly length, scaffold count, average and largest scaffold length, and N50–N100 values.
 
 ```bash
 FASTA=genome.fasta
-OUT=genome.stats.txt
+WRK_DIR=Working_directory
 
-awk '/^>/ {if (len) print len; len = 0; next} {len += length($0)} END {print len}' "$FASTA" \
-    | sort -nr \
-    | awk '
-        { len[NR] = $1; total += $1; if ($1 > 1000) n_1kb++; if ($1 == 1) gaps++ }
-        END {
-            n = NR
-            print "Scaffold Length Summary Statistics"
-            print "----------------------------------"
-            printf "Sum = %d, n = %d, ave = %.2f, largest = %d\n\n", total, n, total / n, len[1]
-            for (x = 50; x <= 100; x += 10) {
-                cum = 0
-                for (i = 1; i <= n; i++) { cum += len[i]; if (cum >= total * x / 100) break }
-                printf "N%d = %d, n = %d\n", x, len[i], i
-            }
-            printf "\nN_count = %d\nGaps = %d\n", n_1kb, gaps
-        }' > "$OUT"
+BASENAME=$(basename "$FASTA" .fasta)
+
+# Create a lengths file: scaffold name + length, sorted descending
+awk '/^>/{if(seqlen){print header"\t"seqlen}; header=$0; seqlen=0; next}{seqlen+=length($0)} END{print header"\t"seqlen}' "$FASTA" \
+  | sort -k2,2nr > "$WRK_DIR/${BASENAME}.lengths.sorted.tsv
+
+LENGTHS=$(awk '{print $2}' "$WRK_DIR/${BASENAME}.lengths.sorted.tsv")
+
+# Total number of scaffolds
+total_scaffolds=$(echo "$LENGTHS" | wc -l)
+
+# Total genome size (sum)
+total_length=$(echo "$LENGTHS" | paste -sd+ - | bc)
+
+# Largest scaffold
+largest=$(echo "$LENGTHS" | sort -nr | head -n1)
+
+# Average length (with decimals)
+average=$(awk -v sum=$total_length -v n=$total_scaffolds 'BEGIN {printf "%.2f", sum/n}')
+
+# Median length
+median_length=$(echo "$LENGTHS" | sort -n | awk -v n=$total_scaffolds '
+  NR == int((n+1)/2) {med1=$1}
+  NR == int((n+2)/2) {med2=$1}
+  END {if (n%2==1) print med1; else print int((med1+med2)/2)}')
+
+# Function to calculate Nx values
+calc_Nx() {
+  local x=$1
+  awk -v x=$x -v total=$total_length '
+  {len[NR]=$1}
+  END {
+    half = total * (x / 100)
+    cumulative = 0
+    for (i=1; i<=NR; i++) {
+      cumulative += len[i]
+      if (cumulative >= half) {
+        print len[i], i
+        exit
+      }
+    }
+  }' < <(echo "$LENGTHS")
+}
+
+# Make sure lengths are sorted descending for Nx calculation
+LENGTHS_SORTED=$(echo "$LENGTHS" | sort -nr)
+
+# Calculate N50, N60, N70, N80, N90, N100
+read N50 n50_n <<< $(calc_Nx 50 <<< "$LENGTHS_SORTED")
+read N60 n60_n <<< $(calc_Nx 60 <<< "$LENGTHS_SORTED")
+read N70 n70_n <<< $(calc_Nx 70 <<< "$LENGTHS_SORTED")
+read N80 n80_n <<< $(calc_Nx 80 <<< "$LENGTHS_SORTED")
+read N90 n90_n <<< $(calc_Nx 90 <<< "$LENGTHS_SORTED")
+read N100 n100_n <<< $(calc_Nx 100 <<< "$LENGTHS_SORTED")
+
+# N_count: count of scaffolds above 1000 bp (adjust as needed)
+N_count=$(echo "$LENGTHS" | awk '$1 > 1000' | wc -l)
+
+# Gaps: count of scaffolds of length exactly 1 bp (adjust if needed)
+Gaps=$(echo "$LENGTHS" | awk '$1 == 1' | wc -l)
+
+# Output to txt file
+{
+echo "Scaffold Length Summary Statistics"
+echo "----------------------------------"
+echo "Sum = $total_length, n = $total_scaffolds, ave = $average, largest = $largest"
+echo ""
+echo "N50 = $N50, n = $n50_n"
+echo "N60 = $N60, n = $n60_n"
+echo "N70 = $N70, n = $n70_n"
+echo "N80 = $N80, n = $n80_n"
+echo "N90 = $N90, n = $n90_n"
+echo "N100 = $N100, n = $n100_n"
+echo ""
+echo "N_count = $N_count"
+echo "Gaps = $Gaps"
+} > "$WRK_DIR/${BASENAME}.stats.txt"
 ```
-
-
 
 ### 4.2 DIAMOND BLASTx
 
