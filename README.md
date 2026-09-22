@@ -10,7 +10,7 @@ The analyses were run on the NeSI and University of Otago SLURM clusters. In the
 
 ## Code authorship and contributions
 
-This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5 and 1.11-1.13. KA contributed to Sections 1.6-10, 1.14-1.15 and 2-5.
+This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5 and 1.11-1.13. KA contributed to Sections 1.6-10, 1.14-1.16 and 2-5.
 
 ## Contents
 
@@ -31,6 +31,8 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [1.13 Contact map](#113-contact-map)
   - [1.14 Retain longest scaffolds](#114-retain-longest-scaffolds)
   - [1.15 BLASTn](#115-blastn)
+  - [1.16 Rename headers](#116-rename-headers)
+  
 - [2. Gene prediction and assessment](#2-gene-prediction-and-assessment)
 
 - [5. Repeat annotation and masking](#5-repeat-annotation-and-masking)
@@ -626,20 +628,20 @@ plt.tight_layout()
 plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 ```
 
- ### 1.14 Retain longest scaffolds
+### 1.14 Retain longest scaffolds
 
-The 26 longest scaffolds were retained for downstream analysis. The assembly is referred to hereafter as genome.sc26.fasta.
+The 26 longest scaffolds were retained for downstream analysis. 
 
 ```bash
-awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.sc26.fasta
+awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.fasta
 ```
 
 ### 1.15 BLASTn
 
-The assembly was reassessed for potential contamination against the NCBI nucleotide (nt) database. Steps 1.6, 1.8 and 1.10 were repeated before downstream analysis.
+The assembly was reassessed for potential contamination against the NCBI nucleotide (nt) database. Steps 1.8 and 1.10 were repeated before downstream analysis.
 
 ```bash
-QUERY=genome.sc26.fasta
+QUERY=genome.fasta
 DB=nt
 OUTPUT_DIR=Output_directory
 
@@ -656,6 +658,29 @@ blastn \
 -num_threads 32
 ```
 
+### 1.16 Rename headers
+
+The scaffold headers were renamed for simplicity before downstream analysis. A mapping file was generated to retain the correspondence between the new and original scaffold names.
+
+```bash
+input=genome.fasta"
+output=genome.sc26.fasta
+mapfile=genome.sc26.fasta.idmap.tsv
+
+awk 'BEGIN{FS="\n"; OFS="\n"} 
+/^>/ {
+  old=$0;
+  gsub(/^>/,"",old);
+  i++;
+  new="scaffold_" i;
+  print ">"new >> "'"$output"'";
+  print new "\t" old >> "'"$mapfile"'";
+  next
+}
+{
+  print $0 >> "'"$output"'"
+}' "$input"
+```
 ## 2. Gene prediction and assessment
 
 ## 5. Repeat annotation and masking
