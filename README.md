@@ -663,7 +663,7 @@ blastn \
 The scaffold headers were renamed for simplicity before downstream analysis. A mapping file was generated to retain the correspondence between the new and original scaffold names.
 
 ```bash
-input=genome.fasta"
+input=genome.fasta
 output=genome.sc26.fasta
 mapfile=genome.sc26.fasta.idmap.tsv
 
