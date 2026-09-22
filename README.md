@@ -31,6 +31,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [1.13 Contact map](#113-contact-map)
   - [1.14 Retain longest scaffolds](#114-retain-longest-scaffolds)
   - [1.15 BLASTn](#115-blastn)
+- [2. Gene prediction and assessment](#2-gene-prediction-and-assessment)
 
 - [5. Repeat annotation and masking](#5-repeat-annotation-and-masking)
   - [5.1 EDTA](#51-edta)
