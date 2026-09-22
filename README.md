@@ -627,7 +627,7 @@ plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 
  ### 1.14 Retain longest scaffolds
 
-The 26 longest scaffolds were retained for downstream analysis. The input is referred to hereafter as genome.sc26.fasta.
+The 26 longest scaffolds were retained for downstream analysis. The assembly is referred to hereafter as genome.sc26.fasta.
 
 ```bash
 awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.sc26.fasta
