@@ -656,7 +656,7 @@ blastn \
 -num_threads 32
 ```
 
-## Gene prediction and assessment
+## 2. Gene prediction and assessment
 
 ## 5. Repeat annotation and masking
 
