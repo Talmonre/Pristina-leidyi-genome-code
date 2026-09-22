@@ -106,7 +106,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1-3. KA
 
 – version not recorded.
 
-## 1. Read quality control and k-mer profiling
+## 1. Genome assembly and assessment
 
 ### 1.1 Read quality control
 
@@ -137,9 +137,7 @@ Histex -G FastK_Table > pristina.hist
 GeneScopeFK.R -i pristina.hist -o . -k 21
 ```
 
-## 2. Genome assembly
-
-### 2.1 Hifiasm
+### 1.3 Genome assembly with Hifiasm
 
 HiFi reads assembled in Hi-C integrated mode with the Omni-C reads.
 
@@ -157,7 +155,7 @@ hifiasm -o pristina_ccs.asm -t 32 \
 awk '/^S/ {print ">"$2; print $3}' pristina_ccs.asm.hic.p_ctg.gfa > pristina_p_ctg.fasta
 ```
 
-### 2.2 Polishing
+### 1.4 Genome assemby polishing
 
 Three rounds of Racon, each using minimap2 alignments of the HiFi reads to the previous round.
 
@@ -173,7 +171,7 @@ for i in 1 2 3; do
 done
 ```
 
-### 2.3 Long-read scaffolding
+### 1.5 Long-read scaffolding
 
 Two rounds of LongStitch: Tigmint-long + ntLink, then Tigmint-long + ntLink + ARKS on the first-round output. LongStitch expects the draft as `<name>.fa` and the reads as `<name>.fq`.
 
@@ -200,9 +198,279 @@ cp racon_iter3.cut250.tigmint.fa.k32.w100.z1000.ntLink.scaffolds.cut250.tigmint.
    pristina.scaffolds.collapsed.fa
 ```
 
-## 3. Hi-C scaffolding
+### 1.6 Assembly statistics
 
-### 3.1 Alignment and YaHS
+Assembly quality was assessed using QUAST
+
+```bash
+FASTA=pristina.scaffolds.collapsed.fa
+
+quast.py "$FASTA" -o quast_results
+```
+Scaffold length statistics were also calculated from the final assembly, including total assembly length, scaffold count, average and largest scaffold length, and N50–N100 values.
+
+```bash
+FASTA=pristina.scaffolds.collapsed.fa
+WRK_DIR=Working_directory
+
+BASENAME=$(basename "$FASTA" .fasta)
+
+# Create a lengths file: scaffold name + length, sorted descending
+awk '/^>/{if(seqlen){print header"\t"seqlen}; header=$0; seqlen=0; next}{seqlen+=length($0)} END{print header"\t"seqlen}' "$FASTA" \
+  | sort -k2,2nr > "$WRK_DIR/${BASENAME}.lengths.sorted.tsv
+
+LENGTHS=$(awk '{print $2}' "$WRK_DIR/${BASENAME}.lengths.sorted.tsv")
+
+# Total number of scaffolds
+total_scaffolds=$(echo "$LENGTHS" | wc -l)
+
+# Total genome size (sum)
+total_length=$(echo "$LENGTHS" | paste -sd+ - | bc)
+
+# Largest scaffold
+largest=$(echo "$LENGTHS" | sort -nr | head -n1)
+
+# Average length (with decimals)
+average=$(awk -v sum=$total_length -v n=$total_scaffolds 'BEGIN {printf "%.2f", sum/n}')
+
+# Median length
+median_length=$(echo "$LENGTHS" | sort -n | awk -v n=$total_scaffolds '
+  NR == int((n+1)/2) {med1=$1}
+  NR == int((n+2)/2) {med2=$1}
+  END {if (n%2==1) print med1; else print int((med1+med2)/2)}')
+
+# Function to calculate Nx values
+calc_Nx() {
+  local x=$1
+  awk -v x=$x -v total=$total_length '
+  {len[NR]=$1}
+  END {
+    half = total * (x / 100)
+    cumulative = 0
+    for (i=1; i<=NR; i++) {
+      cumulative += len[i]
+      if (cumulative >= half) {
+        print len[i], i
+        exit
+      }
+    }
+  }' < <(echo "$LENGTHS")
+}
+
+# Make sure lengths are sorted descending for Nx calculation
+LENGTHS_SORTED=$(echo "$LENGTHS" | sort -nr)
+
+# Calculate N50, N60, N70, N80, N90, N100
+read N50 n50_n <<< $(calc_Nx 50 <<< "$LENGTHS_SORTED")
+read N60 n60_n <<< $(calc_Nx 60 <<< "$LENGTHS_SORTED")
+read N70 n70_n <<< $(calc_Nx 70 <<< "$LENGTHS_SORTED")
+read N80 n80_n <<< $(calc_Nx 80 <<< "$LENGTHS_SORTED")
+read N90 n90_n <<< $(calc_Nx 90 <<< "$LENGTHS_SORTED")
+read N100 n100_n <<< $(calc_Nx 100 <<< "$LENGTHS_SORTED")
+
+# N_count: count of scaffolds above 1000 bp (adjust as needed)
+N_count=$(echo "$LENGTHS" | awk '$1 > 1000' | wc -l)
+
+# Gaps: count of scaffolds of length exactly 1 bp (adjust if needed)
+Gaps=$(echo "$LENGTHS" | awk '$1 == 1' | wc -l)
+
+# Output to txt file
+{
+echo "Scaffold Length Summary Statistics"
+echo "----------------------------------"
+echo "Sum = $total_length, n = $total_scaffolds, ave = $average, largest = $largest"
+echo ""
+echo "N50 = $N50, n = $n50_n"
+echo "N60 = $N60, n = $n60_n"
+echo "N70 = $N70, n = $n70_n"
+echo "N80 = $N80, n = $n80_n"
+echo "N90 = $N90, n = $n90_n"
+echo "N100 = $N100, n = $n100_n"
+echo ""
+echo "N_count = $N_count"
+echo "Gaps = $Gaps"
+} > "$WRK_DIR/${BASENAME}.stats.txt"
+```
+
+### 1.7 DIAMOND BLASTx
+
+The assembly was split into six parts, with each part searched in a separate array job. Six array jobs were specified using #SBATCH --array=0-5 and submitted with sbatch --array=0-5 diamond.blastx.sh.
+
+```bash
+QUERY=pristina.scaffolds.collapsed.fa
+DIAMOND_PATH=diamond
+DB_PATH=nr.dmnd
+OUTPUT_DIR=Output_directory
+SPLIT_DIR=split_queries
+SPLIT_OUT=split_output
+PREFIX="pristina"
+
+mkdir -p "$OUTPUT_DIR" "$SPLIT_DIR" "$SPLIT_OUT"
+
+echo "----------------------------------------"
+echo " STEP 1: Split query file (only once) "
+echo "----------------------------------------"
+
+if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]; then
+    echo "Splitting query file..."
+    num_files=6
+    total_seqs=$(grep -c '^>' "$QUERY")
+    seq_per_file=$(( total_seqs / num_files ))
+    remainder=$(( total_seqs % num_files ))
+
+    awk -v num_files="$num_files" -v seq_per_file="$seq_per_file" -v remainder="$remainder" -v outdir="$SPLIT_DIR" '
+        BEGIN { file_idx=1; seq_count=0 }
+        /^>/ {
+            if (seq_count >= seq_per_file + (file_idx <= remainder ? 1 : 0)) {
+                file_idx++
+                seq_count=0
+            }
+            seq_count++
+        }
+        { print > (outdir "/query_part_" file_idx ".fasta") }
+    ' "$QUERY"
+
+    ls "$SPLIT_DIR"/query_part_*.fasta > "$SPLIT_DIR/parts_list.txt"
+    echo "Splitting complete: $(wc -l < "$SPLIT_DIR/parts_list.txt") files created."
+fi
+
+# Wait a bit for file creation to propagate
+sleep 60
+
+echo "----------------------------------------"
+echo " STEP 2: Run Diamond blastx "
+echo "----------------------------------------"
+
+PART_LIST_FILE="$SPLIT_DIR/parts_list.txt"
+QUERY_FILE=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" "$PART_LIST_FILE")
+OUTFILE="$SPLIT_OUT/${PREFIX}_part${SLURM_ARRAY_TASK_ID}.out"
+
+echo "------------------------------------------------"
+echo "DIAMOND BLASTx job started for task $SLURM_ARRAY_TASK_ID on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "------------------------------------------------"
+
+"$DIAMOND_PATH" blastx
+--query "$QUERY_FILE" \
+--db "$DB_PATH" \
+--evalue 1e-5 \
+--max-hsps 1 \
+--max-target-seqs 1 \
+--outfmt 6 qseqid bitscore qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore \
+--out "$OUTFILE" 2 \
+--more-sensitive \
+--threads 32
+
+echo "------------------------------------------------"
+echo "Task $SLURM_ARRAY_TASK_ID completed: $OUTFILE"
+echo "Finished at: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "------------------------------------------------"
+
+```
+
+### 1.8 Read coverage
+
+```bash
+QUERY=pristina.scaffolds.collapsed.fa
+READS_FQ=hifi_ccs.fastq
+OUTPUT_DIR=Output_directory
+
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+
+minimap2 -ax map-hifi "$QUERY" "$READS_FQ" -t 32 -o "$OUTPUT_DIR/${BASENAME}.sam" 2>&1 | tee ./alignments.log
+
+# Convert SAM to BAM, sort and index
+samtools view -S -b "$OUTPUT_DIR/${BASENAME}.sam" > "$OUTPUT_DIR/${BASENAME}.bam"
+samtools sort "$OUTPUT_DIR/${BASENAME}.bam" -@ 32 -o "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+samtools index "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+
+echo "Alignment completed on $(date '+%Y-%m-%d %H:%M:%S')!"
+echo "Results are stored in \"$OUTPUT_DIR\""
+```
+
+### 1.9 Taxify
+
+Taxify was run on the DIAMOND results to assign taxonomy to the assembled sequences. The resulting taxonomic assignments were then used as input for BlobTools.
+
+```bash
+BLAST_OUTPUT=blastx.tsv
+DB=prot.accession2taxid
+OUTPUT_DIR=Output_directory
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+blobtools taxify -f "$BLAST_OUTPUT" -c 2 -m "$DB" -s 1 -t 2
+
+echo "Taxify job completed!"
+```
+
+### 1.10 BlobTools, BUSCO and snail plot (BlobToolkit)
+
+DIAMOND BLASTx taxonomic assignments and read coverage were combined in BlobTools to assess the assembly. Assembly completeness was assessed using BUSCO, and key assembly metrics were summarised in a BlobToolKit snail plot.
+
+```bash
+QUERY=pristina.scaffolds.collapsed.fa
+TAXIFY_OUTPUT=taxified.out
+DB=nodesDB.txt
+SORTED_BAM=genome.sorted.bam
+OUTPUT_DIR=Output_directory
+BUSCO_DIR=Busco_output_directory
+BUSCO_DB=metazoa_odb10
+SNAILPLOT_DIR=Snailplot_directory
+BLOB_DIR=BlobDir_directory
+
+mkdir "$OUTPUT_DIR" "$BUSCO_DIR" "$BLOB_DIR"
+cd "$OUTPUT_DIR" || exit
+
+echo "########################################"
+echo "# 1. BLOBTOOLS PLOTTING (v1)"
+echo "########################################"
+
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+
+echo "Creating blobplot"
+blobtools create -i "$QUERY" -t "$TAXIFY_OUTPUT" --db "$DB" -b "$SORTED_BAM" --title ${BASENAME}.blobplot -o "$OUTPUT_DIR"/${BASENAME}.blobplot
+
+echo "Generating tabular summary"
+blobtools view -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_cov" --cov
+
+echo "Plotting: Single plot per phylum"
+blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_comb" --format pdf
+
+echo "Plotting: Multiplot"
+blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o "${OUTPUT_DIR}/blobplot.Phylum_multi" --format pdf --multiplot
+
+echo "Blobplots completed!"
+
+echo "########################################"
+echo "# 2. BUSCO ANALYSIS"
+echo "########################################"
+
+busco -i "$QUERY" -l "$BUSCO_DB" -o "${BASENAME}_BUSCO" -m geno -c 32
+mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
+
+echo "########################################"
+echo "# 3. SNAILPLOT USING BLOBTOOLKIT (v2)"
+echo "########################################"
+
+cd "$SNAILPLOT_DIR"
+
+blobtools create --fasta "$QUERY" "$BLOB_DIR"
+blobtools add --busco "$BUSCO_DIR/${BASENAME}_BUSCO/run_metazoa_odb10/full_table.tsv" "$BLOB_DIR"
+blobtools view --plot --view snail "$BLOB_DIR"
+
+echo "Snail plot created in $SNAILPLOT_DIR"
+
+echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+```
+
+### 1.11 Hi-C scaffolding, Alignment and YaHS
 
 Omni-C read files were aligned independently, then merged. Mate information was added and duplicates removed before scaffolding with YaHS.
 
@@ -231,7 +499,7 @@ yahs -o "$OUTDIR/yahs_out" "$ASSEMBLY" "$OUTDIR/hic_markdup.bam"
 samtools faidx "$OUTDIR/yahs_out_scaffolds_final.fa"
 ```
 
-### 3.2 Scaffold size filter
+### 1.12 Scaffold size filter
 
 ```bash
 SCAFFOLDS=yahs_output/yahs_out_scaffolds_final.fa
@@ -243,7 +511,7 @@ samtools faidx "$SCAFFOLDS" $(cat scaffolds_to_keep.txt) > "$OUT"
 samtools faidx "$OUT"
 ```
 
-### 3.3 Contact map
+### 1.13 Contact map
 
 Contacts from the Hi-C alignments were placed on the scaffolds through the YaHS AGP file and binned at 100 kb for the 21 scaffolds longer than 10 Mb.
 
@@ -356,6 +624,32 @@ cbar.set_label("Hi-C contacts (log₁₀)", rotation=270, labelpad=20, fontsize=
 plt.tight_layout()
 plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 ```
+
+### 1.14 Retain longest scaffolds
+
+The 26 longest scaffolds were retained for downstream analysis. The assembly is referred to hereafter as genome.sc26.fasta.
+
+awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.sc26.fasta
+
+### 1.15 BLASTn
+
+The assembly was reassessed for potential contamination against the NCBI nucleotide (nt) database. Steps 1.8 and 1.10 were repeated before downstream analysis.
+
+QUERY=genome.sc26.fasta
+DB=nt
+OUTPUT_DIR=Output_directory
+
+cd "$OUTPUT_DIR" || exit
+
+echo "Starting blastn at $(date)"
+blastn \
+-query "$QUERY" \
+-db "$DB" \
+-evalue 1e-5 \
+-max_target_seqs 1 \
+-outfmt "6 qseqid staxids bitscore qseqid sseqid pident length mismatch gapopen std" \
+-out "$OUTPUT_DIR/blastn.tsv" \
+-num_threads 32
 
 ## 4. Assembly quality and taxonomic assessment
 
