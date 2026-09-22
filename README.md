@@ -625,16 +625,19 @@ plt.tight_layout()
 plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 ```
 
-### 1.14 Retain longest scaffolds
+ ### 1.14 Retain longest scaffolds
 
-The 26 longest scaffolds were retained for downstream analysis. The assembly is referred to hereafter as genome.sc26.fasta.
+The 26 longest scaffolds were retained for downstream analysis. The input is referred to hereafter as genome.sc26.fasta.
 
+```bash
 awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.sc26.fasta
+```
 
 ### 1.15 BLASTn
 
 The assembly was reassessed for potential contamination against the NCBI nucleotide (nt) database. Steps 1.8 and 1.10 were repeated before downstream analysis.
 
+```bash
 QUERY=genome.sc26.fasta
 DB=nt
 OUTPUT_DIR=Output_directory
@@ -650,6 +653,7 @@ blastn \
 -outfmt "6 qseqid staxids bitscore qseqid sseqid pident length mismatch gapopen std" \
 -out "$OUTPUT_DIR/blastn.tsv" \
 -num_threads 32
+```
 
 ## 4. Assembly quality and taxonomic assessment
 
