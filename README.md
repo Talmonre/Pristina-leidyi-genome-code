@@ -32,7 +32,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [1.14 Retain longest scaffolds](#114-retain-longest-scaffolds)
   - [1.15 BLASTn](#115-blastn)
   - [1.16 Rename headers](#116-rename-headers)
-- [2. Gene prediction and assessment](#2-gene-prediction-and-assessment)
+- [2. Genome content and functional annotation](#2-genome-content-and-functional-annotation)
   - [2.1 Repeat annotation and masking](#21-repeat-annotation-and-masking)
     - [2.1.1 Repeat annotation using EDTA](#211-repeat-annotation-using-edta)
     - [2.1.2 Repeat annotation using RepeatMasker](#212-repeat-annotation-using-repeatmasker)
