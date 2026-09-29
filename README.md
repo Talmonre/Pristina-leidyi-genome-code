@@ -38,7 +38,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
     - [2.1.2 Repeat annotation using RepeatMasker](#212-repeat-annotation-using-repeatmasker)
     - [2.1.3 Merge masking](#213-merge-masking)
     - [2.1.4 Comparison of masking tools](#214-comparison-of-masking-tools)
-  - [2.2 Gene prediction and assessment](#22-gene-prediction-and-assessment)
+  - [2.2 Gene prediction](#22-gene-prediction)
     - [2.2.1 BRAKER3 using short RNA reads](#221-braker3-using-short-RNA-reads)
     - [2.2.2 BRAKER3 using protein and short RNA reads](#222-braker3-using-protein-and-short-RNA-reads)
     - [2.2.3. TSEBRA](#223-tsebra)
@@ -768,7 +768,6 @@ echo "---------------------------------------------"
 Repeat annotation using RepeatMasker and the Dfam 3.9 database (partitions 15 and 16).
 
 ```bash
-
 REPEATMASKER_DB=Dfam.lib
 QUERY=genome.sc26.fasta
 OUTPUT_DIR=Output_directory
@@ -815,7 +814,6 @@ echo "---------------------------------------------"
 echo "RepeatMasker using Dfam database completed on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "Results stored in: $OUTPUT_DIR"
 echo "---------------------------------------------"
-
 ```
 
 #### 2.1.3. Merge masking
@@ -825,7 +823,6 @@ The inputs required to generate a Venn diagram comparing the three tools were al
 Note: BEDTools is required to run this script.
 
 ```bash
-
 exec > >(tee -a merged_masking.log) 2>&1
 
 REPEATMOD_OUT=RepeatMasker_RepeatMod.out
@@ -887,7 +884,6 @@ bedtools maskfasta -fi "$QUERY" -bed "${NAME}.merged_masked_genome.bed" -fo "${N
 echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All results are inside: $OUTPUT_DIR"
 
 mv ../merged_masking.log  "$OUTPUT_DIR"
-
 ```
 
 #### 2.1.4. Comparison of masking tools
@@ -895,7 +891,6 @@ mv ../merged_masking.log  "$OUTPUT_DIR"
 A Venn diagram was generated in R statistical software to compare the outputs from the three tools.
 
 ```r
-
 install.packages("VennDiagram")
 library(VennDiagram)
 library(grid)
@@ -961,17 +956,14 @@ grid.newpage()
 grid.rect(gp = gpar(fill = "white", col = NA))  # <- Add white rectangle
 
 grid.draw(gList(venn_plot))
-
 ```
 
 ### 2.2. Gene prediction and assessment
-
 #### 2.2.1. BRAKER3 using short RNA reads
 
 Short-read RNA-sequencing data from Álvarez-Campos (2024) were aligned to the genome for use as evidence in BRAKER3.
 
 ```bash
-
 echo "-----------------------------------------"
 echo " SHORT RNA READS ALIGNMENT TO GENOME "
 echo "-----------------------------------------"
@@ -1042,13 +1034,11 @@ else
 fi
 
 echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All files are inside: $OUTPUT_DIR"
-
 ```
 
 Short-read RNA-seq data were used as evidence in BRAKER3. BUSCO was used to assess the completeness of the predicted proteome.
 
 ```bash
-
 AUGUSTUS_CONFIG_PATH=config
 SINGULARITY=braker3.sif"
 QUERY=genome.sc26.softmasked.fasta
@@ -1093,7 +1083,6 @@ mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
 echo "-----------------------------------------"
 echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-----------------------------------------"
-
 ```
 
 #### 2.2.2. BRAKER3 using protein and short RNA reads
@@ -1101,11 +1090,9 @@ echo "-----------------------------------------"
 Protein sequences from the class Clitellata (phylum: Annelida) were retrieved from the NCBI database for use as evidence in BRAKER3.
 
 ```bash
-
 SEARCH_TERM='Clitellata[Organism]'
 BATCH_SIZE=500
 OUTFILE="clitellata_proteins.fasta"
-
 
 # -----------------------------------------
 # Step 1: Get all protein IDs
@@ -1155,13 +1142,11 @@ done
 
 rm ids_batch_* "$TMP_FILE" "$ID_FILE"
 echo "Download complete: $OUTFILE"
-
 ```
 
 Short-read RNA-seq data from the previous step and protein sequences were used together as evidence in BRAKER3. BUSCO was used to assess the completeness of the predicted proteome.
 
 ```bash
-
 AUGUSTUS_CONFIG_PATH=config
 SINGULARITY=braker3.sif"
 QUERY=genome.sc26.softmasked.fasta
@@ -1207,7 +1192,6 @@ mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
 echo "-----------------------------------------"
 echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-----------------------------------------"
-
 ```
 #### 2.2.3. TSEBRA
 
@@ -1215,9 +1199,7 @@ The outputs from BRAKER3 were combined with long-read sequencing data in TSEBRA,
 
 Long reads were aligned to the genome for use as evidence in TSEBRA.
 
-
 ```bash
-
 echo "-----------------------------------------"
 echo " LONG RNA READS ALIGNMENT TO GENOME "
 echo "-----------------------------------------"
@@ -1246,7 +1228,6 @@ echo "Creating gtf for TSEBRA"
 stringtie "$OUTPUT_DIR/${BASENAME}.sorted.bam" -p 32 -o "$OUTPUT_DIR/${BASENAME}.gtf"
 
 echo "Results are stored in \"$OUTPUT_DIR\""2
-
 ```
 
 The outputs from BRAKER3 were combined with long-read RNA-sequencing data using TSEBRA.
@@ -1254,7 +1235,6 @@ The outputs from BRAKER3 were combined with long-read RNA-sequencing data using 
 The tsebra.conf configuration file was used to run TSEBRA.
 
 ```text
-
 # Weight for each hint source
 P 0.9
 E 1
@@ -1270,13 +1250,11 @@ e_3 0.096
 e_4 0.02
 e_5 0.18
 e_6 0.18
-
 ```
 
 TSEBRA
 
 ```bash
-
 echo "--------------------------------------------------"
 echo " TSEBRA USING BRAKER3 OUTPUT AND LONG READ RNA"
 echo "--------------------------------------------------"
@@ -1321,13 +1299,11 @@ echo "-------------------------------------------------------------------"
 echo "TSEBRA gene prediction completed on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "Results stored in: $OUTPUT_DIR"
 echo "-------------------------------------------------------------------"
-
 ```
 
 Formatting the GTF produced by TSEBRA, converting GTF files to FASTA, and assessing the proteome using BUSCO.
 
 ```bash
-
 TSEBRA_GTF=tsebra.output.gtf
 TSEBRA_FORMATTED_GTF=tsebra.format.gtf
 QUERY=genome.sc26.softmasked.fasta
@@ -1381,7 +1357,6 @@ mv "$BUSCO_OUTPUT_NAME" "$BUSCO_DIR"
 echo "-------------------------------------------------------------------"
 echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-------------------------------------------------------------------"
-
 ```
 
 
