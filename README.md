@@ -10,7 +10,7 @@ The analyses were run on the NeSI and University of Otago SLURM clusters. In the
 
 ## Code authorship and contributions
 
-This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5 and 1.11-1.13. KA contributed to Sections 1.6-10, 1.14-1.16 and 2-5.
+This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5 and 1.11-1.13. KA contributed to Sections 1.6-1.10, 1.14-1.16 and 2-5.
 
 ## Contents
 
@@ -430,9 +430,9 @@ BLOB_DIR=BlobDir_directory
 mkdir "$OUTPUT_DIR" "$BUSCO_DIR" "$BLOB_DIR"
 cd "$OUTPUT_DIR" || exit
 
-echo "########################################"
-echo "# 1. BLOBTOOLS PLOTTING (v1)"
-echo "########################################"
+echo "------------------------------------------------"
+echo " 1.BLOBTOOLS PLOTTING (v1)"
+echo "------------------------------------------------"
 
 # Extract base name of query file
 BASENAME=$(basename "$QUERY" .fasta)
@@ -451,16 +451,16 @@ blobtools plot -i "${OUTPUT_DIR}/${BASENAME}.blobplot.blobDB.json" -r phylum -o 
 
 echo "Blobplots completed!"
 
-echo "########################################"
-echo "# 2. BUSCO ANALYSIS"
-echo "########################################"
+echo "------------------------------------------------"
+echo "2. BUSCO ANALYSIS"
+echo "------------------------------------------------"
 
 busco -i "$QUERY" -l "$BUSCO_DB" -o "${BASENAME}_BUSCO" -m geno -c 32
 mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
 
-echo "########################################"
-echo "# 3. SNAILPLOT USING BLOBTOOLKIT (v2)"
-echo "########################################"
+echo "------------------------------------------------"
+echo "3. SNAILPLOT USING BLOBTOOLKIT (v2)"
+echo "------------------------------------------------"
 
 cd "$SNAILPLOT_DIR"
 
@@ -683,123 +683,285 @@ awk 'BEGIN{FS="\n"; OFS="\n"}
 ```
 ## 2. Gene prediction and assessment
 
-## 5. Repeat annotation and masking
+### 2.1 Repeat annotation and masking
 
-### 5.1 EDTA
+#### 2.1.1. Repeat annotation using EDTA
 
 ```bash
-GENOME=genome.fasta
+QUERY=genome.sc26.fasta
 
-EDTA.pl --genome "$GENOME" --sensitive 1 --anno 1 --threads 32
+EDTA.pl --genome "$QUERY" --sensitive 1 --anno 1 --threads 32 2>&1 | tee EDTA.log
 ```
 
-### 5.2 RepeatModeler and RepeatMasker
-
-RepeatMasker was run twice on the EDTA-formatted genome: once with the de novo RepeatModeler library and once with the Dfam library.
+Repeat annotation using RepeatMasker and a *de novo* repeat library generated with RepeatModeler.
 
 ```bash
-GENOME=genome.fasta.mod
-DFAM_LIB=RepeatMasker/Libraries/RepeatMasker.lib
+# Define paths
+QUERY=genome.sc26.fasta
+OUTPUT_DIR=Output_directory
 
-BuildDatabase -name Pristina_HiC_db "$GENOME"
-RepeatModeler -database Pristina_HiC_db -threads 32 -LTRStruct
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit 1
 
-RepeatMasker -lib Pristina_HiC_db-families.fa "$GENOME" -dir RepeatMasker_RepeatModeler
-RepeatMasker -lib "$DFAM_LIB"                  "$GENOME" -dir RepeatMasker_Dfam
+echo  "Building a Database from Genome Assembly"
+BuildDatabase -name db "$QUERY"
+
+echo "Now running RepeatModeler"
+RepeatModeler -database db -threads 32 -LTRStruct 2>&1 | tee RepeatModeler.log
+
+echo "---------------------------------------------------------"
+echo "RepeatModeler completed on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Results are stored in \"$OUTPUT_DIR\""
+echo "---------------------------------------------------------"
 ```
 
-### 5.3 Merged masking
-
-The three repeat sets were converted to BED, merged into one non-redundant set and used to soft- and hard-mask the genome. The overlap categories are used for the Venn diagram (5.4).
-
 ```bash
-GENOME=genome.fasta.mod
-REPEATMOD_OUT=RepeatMasker_RepeatModeler/genome.fasta.mod.out
-DFAM_OUT=RepeatMasker_Dfam/genome.fasta.mod.out
-EDTA_OUT=genome.fasta.mod.EDTA.anno/genome.fasta.mod.EDTA.TEanno.out
-NAME=genome
+REPEATMASKER_DB=db-families.fa
+QUERY=genome.sc26.fasta
+OUTPUT_DIR=Output_directory
 
-# RepeatMasker / EDTA .out to BED
-rm_to_bed() {
-    awk 'BEGIN {OFS = "\t"} $1 !~ /^SW|^perc|^score|^sequence|^ID/ && NF > 1 {print $5, $6 - 1, $7, $10}' "$1"
-}
-rm_to_bed "$REPEATMOD_OUT" > "${NAME}_RepeatMod.bed"
-rm_to_bed "$DFAM_OUT"      > "${NAME}_dfam.bed"
-awk 'BEGIN {OFS = "\t"} !/^#/ {print $5, $6 - 1, $7, $11}' "$EDTA_OUT" > "${NAME}_edta.bed"
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+PREFIX="${BASENAME}_RepeatMasker_RepeatMod"
 
-for set in RepeatMod dfam edta; do
-    bedtools sort -i "${NAME}_${set}.bed" | bedtools merge -i - -c 4 -o distinct > "${NAME}_${set}_merged.bed"
+mkdir $OUTPUT_DIR" 
+cd "$OUTPUT_DIR" 
+
+echo "---------------------------------------------"
+echo "Job started on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Processing genome: $BASENAME"
+echo "---------------------------------------------"
+
+# Run RepeatMasker with databases
+RepeatMasker -lib "$REPEATMASKER_DB" "$QUERY" -dir "$OUTPUT_DIR" 2>&1 | tee "$OUTPUT_DIR/RepeatMa_RepeatMod_run.log"
+
+echo "---------------------------------------------"
+echo "Renaming output files to use prefix: $PREFIX"
+echo "---------------------------------------------"
+
+# Loop through expected outputs
+for ext in out tbl masked cat.gz; do
+    # Find first matching file (RepeatMasker should only output one set)
+    file=$(ls *.$ext 2>/dev/null | head -n 1 || true)
+
+    # Only proceed if file exists
+    if [[ -n "$file" && -f "$file" ]]; then
+        new_name="${PREFIX}.${ext}"
+
+        # Double-check no accidental overwrite
+        if [[ -e "$new_name" ]]; then
+            echo "Skipping rename for $file — target $new_name already exists."
+        else
+            echo "Renaming: $file → $new_name"
+            mv -- "$file" "$new_name"
+        fi
+    fi
 done
 
-# overlap categories between the three tools
-bedtools multiinter -i "${NAME}_RepeatMod_merged.bed" "${NAME}_dfam_merged.bed" "${NAME}_edta_merged.bed" \
-    > "${NAME}_repeats_overlap.bed"
-awk '$4 == 1 && $5 == "1"'           "${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_only.bed"
-awk '$4 == 1 && $5 == "2"'           "${NAME}_repeats_overlap.bed" > "${NAME}_dfam_only.bed"
-awk '$4 == 1 && $5 == "3"'           "${NAME}_repeats_overlap.bed" > "${NAME}_edta_only.bed"
-awk '$4 == 3'                        "${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler.dfam.edta.bed"
-awk '$4 == 2 && $5 ~ /1/ && $5 ~ /2/' "${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_dfam.bed"
-awk '$4 == 2 && $5 ~ /1/ && $5 ~ /3/' "${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_edta.bed"
-awk '$4 == 2 && $5 ~ /2/ && $5 ~ /3/' "${NAME}_repeats_overlap.bed" > "${NAME}_dfam_edta.bed"
-
-# merged mask and masked genomes
-cat "${NAME}_RepeatMod_merged.bed" "${NAME}_dfam_merged.bed" "${NAME}_edta_merged.bed" \
-    | bedtools sort -i - \
-    | bedtools merge -i - -c 4 -o distinct > "${NAME}.merged_masked_genome.bed"
-
-bedtools maskfasta -fi "$GENOME" -bed "${NAME}.merged_masked_genome.bed" -fo "${NAME}.merged.hardmasked_genome.fasta"
-bedtools maskfasta -fi "$GENOME" -bed "${NAME}.merged_masked_genome.bed" -fo "${NAME}.merged.softmasked_genome.fasta" -soft
+echo "---------------------------------------------"
+echo "RepeatMasker using de novo RepeatModeler database completed on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Results stored in: $OUTPUT_DIR"
+echo "---------------------------------------------"
 ```
 
-### 5.4 Venn diagram
+Repeat annotation using RepeatMasker and the Dfam 3.9 database (partitions 15 and 16).
+
+```bash
+
+REPEATMASKER_DB=Dfam.lib
+QUERY=genome.sc26.fasta
+OUTPUT_DIR=Output_directory
+
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+PREFIX="${BASENAME}_RepeatMasker_Dfam"
+
+mkdir $OUTPUT_DIR" 
+cd "$OUTPUT_DIR" || exit 1
+
+echo "-----------------------------------------------------------------"
+echo "RepeatMasker using Dfam started on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Processing genome: $BASENAME"
+echo "-----------------------------------------------------------------"
+
+# Run RepeatMasker with databases
+RepeatMasker -lib "$REPEATMASKER_DB" "$QUERY" -dir "$OUTPUT_DIR" 2>&1 | tee "$OUTPUT_DIR/RepeatMa_Dfam_run.log"
+
+echo "----------------------------------------------"
+echo "Renaming output files to use prefix: $PREFIX"
+echo "----------------------------------------------"
+
+# Loop through expected outputs
+for ext in out tbl masked cat.gz; do
+    # Find first matching file (RepeatMasker should only output one set)
+    file=$(ls *.$ext 2>/dev/null | head -n 1 || true)
+
+    # Only proceed if file exists
+    if [[ -n "$file" && -f "$file" ]]; then
+        new_name="${PREFIX}.${ext}"
+
+        # Double-check no accidental overwrite
+        if [[ -e "$new_name" ]]; then
+            echo "Skipping rename for $file — target $new_name already exists."
+        else
+            echo "Renaming: $file → $new_name"
+            mv -- "$file" "$new_name"
+        fi
+    fi
+done
+
+echo "---------------------------------------------"
+echo "RepeatMasker using Dfam database completed on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Results stored in: $OUTPUT_DIR"
+echo "---------------------------------------------"
+
+```
+
+The three outputs from the masking steps were merged into a single non-overlapping masked genome.
+The inputs required to generate a Venn diagram comparing the three tools were also produced within this script.
+Note: BEDTools is required to run this script.
+
+```bash
+
+exec > >(tee -a merged_masking.log) 2>&1
+
+REPEATMOD_OUT=RepeatMasker_RepeatMod.out
+DFAM_OUT=RepeatMasker_Dfam.out
+EDTA_OUT=EDTA.TEanno.out
+QUERY=genome.sc26.fasta
+OUTPUT_DIR=Output_directory
+
+# Extract base name of query file
+NAME=$(basename "$QUERY" .fasta.mod)
+
+echo "Genome name detected: $NAME"
+
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR"
+
+echo "All outputs will be written to: $OUTPUT_DIR"
+
+# ==== STEP 1. Convert to BED format ====
+echo "[1/5] Converting outputs to BED..."
+awk 'BEGIN {OFS="\t"} $1 !~ /^SW|^perc|^score|^sequence|^ID/ && NF > 1 {print $5, $6-1, $7, $10}' "$REPEATMOD_OUT" > "${NAME}_RepeatMod.bed"
+awk 'BEGIN {OFS="\t"} $1 !~ /^SW|^perc|^score|^sequence|^ID/ && NF > 1 {print $5, $6-1, $7, $10}' "$DFAM_OUT" > "${NAME}_dfam.bed"
+awk 'BEGIN{OFS="\t"} !/^#/ {print $5, $6-1, $7, $11}' "$EDTA_OUT" > "${NAME}_edta.bed"
+
+# ==== STEP 2. Merge overlapping regions ====
+echo "[2/5] Merging overlapping regions..."
+bedtools sort -i "${NAME}_RepeatMod.bed" | bedtools merge -i - -c 4 -o distinct > "${NAME}_RepeatMod_merged.bed"
+bedtools sort -i "${NAME}_dfam.bed" | bedtools merge -i - -c 4 -o distinct > "${NAME}_dfam_merged.bed"
+bedtools sort -i "${NAME}_edta.bed" | bedtools merge -i - -c 4 -o distinct > "${NAME}_edta_merged.bed"
+
+# ==== STEP 3. Compare overlaps ====
+echo "[3/5] Running bedtools multiinter..."
+bedtools multiinter -i "${NAME}_RepeatMod_merged.bed" "${NAME}_dfam_merged.bed" "${NAME}_edta_merged.bed" > "${NAME}_repeats_overlap.bed"
+
+# ==== STEP 4. Summarize for Venn ====
+echo "[4/5] Summarizing overlaps for Venn..."
+mkdir -p Summaries_Venn_Diagram
+cd Summaries_Venn_Diagram
+
+awk '$4 == 1 && $5 == "1"' ../"${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_only.bed"
+awk '$4 == 1 && $5 == "2"' ../"${NAME}_repeats_overlap.bed" > "${NAME}_dfam_only.bed"
+awk '$4 == 1 && $5 == "3"' ../"${NAME}_repeats_overlap.bed" > "${NAME}_edta_only.bed"
+awk '$4 == 3' ../"${NAME}_repeats_overlap.bed" > "${NAME_RAW}_Repeatmodeler.dfam.edta.bed"
+awk '$4 == 2 && $5 ~ /1/ && $5 ~ /2/' ../"${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_dfam.bed"
+awk '$4 == 2 && $5 ~ /1/ && $5 ~ /3/' ../"${NAME}_repeats_overlap.bed" > "${NAME}_Repeatmodeler_edta.bed"
+awk '$4 == 2 && $5 ~ /2/ && $5 ~ /3/' ../"${NAME}_repeats_overlap.bed" > "${NAME}_dfam_edta.bed"
+
+cd ..
+
+# ==== STEP 5. Final merged masked genome ====
+echo "[5/5] Building merged masked genome..."
+
+cat "${NAME}_RepeatMod_merged.bed" "${NAME}_dfam_merged.bed" "${NAME}_edta_merged.bed" | bedtools sort -i - > all_sorted.bed
+
+bedtools merge -i all_sorted.bed -c 4 -o distinct > "${NAME}.merged_masked_genome.bed"
+bedtools maskfasta -fi "$QUERY" -bed "${NAME}.merged_masked_genome.bed" -fo "${NAME}.merged.hardmasked_genome.fasta"
+bedtools maskfasta -fi "$QUERY" -bed "${NAME}.merged_masked_genome.bed" -fo "${NAME}.merged.softmasked_genome.fasta" -soft
+
+echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All results are inside: $OUTPUT_DIR"
+
+mv ../merged_masking.log  "$OUTPUT_DIR"
+
+```
+
+A Venn diagram was generated in R statistical software to compare the outputs from the three tools.
 
 ```r
+
+install.packages("VennDiagram")
 library(VennDiagram)
 library(grid)
+library(dplyr)
 
-name <- "genome"
-count <- function(suffix) length(readLines(paste0(name, "_", suffix, ".bed")))
+# Count regions
+only_modeler <- length(readLines("Repeatmodeler_only.bed"))
+only_dfam <- length(readLines("dfam_only.bed"))
+only_edta <- length(readLines("edta_only.bed"))
 
-only_modeler <- count("Repeatmodeler_only")
-only_dfam    <- count("dfam_only")
-only_edta    <- count("edta_only")
-modeler_dfam <- count("Repeatmodeler_dfam")
-modeler_edta <- count("Repeatmodeler_edta")
-dfam_edta    <- count("dfam_edta")
-all_three    <- count("Repeatmodeler.dfam.edta")
+modeler_dfam <- length(readLines("Repeatmodeler_dfam.bed"))
+modeler_edta <- length(readLines("Repeatmodeler_edta.bed"))
+dfam_edta <- length(readLines("dfam_edta.bed"))
 
-counts <- c(only_modeler, only_dfam, modeler_dfam, only_edta, modeler_edta, dfam_edta, all_three)
-original_labels <- as.character(counts)
-custom_labels   <- sprintf("%d\n(%.1f%%)", counts, 100 * counts / sum(counts))
+all_three <- length(readLines("Repeatmodeler.dfam.edta.bed"))
 
+# Original count labels as characters (used to match regions)
+original_labels <- as.character(c(
+  only_modeler,
+  only_dfam,
+  modeler_dfam,
+  only_edta,
+  modeler_edta,
+  dfam_edta,
+  all_three
+))
+
+total <- sum(c(only_modeler, only_dfam, modeler_dfam, only_edta, modeler_edta, dfam_edta, all_three))
+
+# Custom formatted labels
+custom_labels <- sprintf("%d\n(%.1f%%)",
+                         c(only_modeler, only_dfam, modeler_dfam, only_edta, modeler_edta, dfam_edta, all_three),
+                         100 * c(only_modeler, only_dfam, modeler_dfam, only_edta, modeler_edta, dfam_edta, all_three) / total)
+
+# Draw the Venn diagram and hide the default text
 grid.newpage()
 venn_plot <- draw.triple.venn(
   area1 = only_modeler + modeler_dfam + modeler_edta + all_three,
   area2 = only_dfam + modeler_dfam + dfam_edta + all_three,
   area3 = only_edta + modeler_edta + dfam_edta + all_three,
-  n12   = modeler_dfam + all_three,
-  n13   = modeler_edta + all_three,
-  n23   = dfam_edta + all_three,
-  n123  = all_three,
+  n12 = modeler_dfam + all_three,
+  n13 = modeler_edta + all_three,
+  n23 = dfam_edta + all_three,
+  n123 = all_three,
   category = c("RepeatModeler", "Dfam", "EDTA"),
-  fill     = c("skyblue", "pink1", "palegreen"),
-  cat.cex  = 1.5
+  fill = c("skyblue", "pink1", "palegreen"),
+  #cex = 2,        # we will override these
+  cat.cex = 1.5
 )
 
-# replace the region counts with count + percentage labels
+# Replace labels by matching the original values
 for (i in seq_along(venn_plot)) {
-  if (grepl("text", venn_plot[[i]]$name) && venn_plot[[i]]$label %in% original_labels) {
-    venn_plot[[i]]$label <- custom_labels[[match(venn_plot[[i]]$label, original_labels)]]
-    venn_plot[[i]]$gp    <- gpar(fontsize = 24)
+  if (grepl("text", venn_plot[[i]]$name) &&
+      venn_plot[[i]]$label %in% original_labels) {
+    index <- match(venn_plot[[i]]$label, original_labels)
+    venn_plot[[i]]$label <- custom_labels[[index]]
+    venn_plot[[i]]$gp <- gpar(fontsize = 24)
   }
 }
 
+# Redraw with white background
 grid.newpage()
-grid.rect(gp = gpar(fill = "white", col = NA))
+grid.rect(gp = gpar(fill = "white", col = NA))  # <- Add white rectangle
+
 grid.draw(gList(venn_plot))
+
 ```
 
-### 5.5 Repeat classification and summary
+
+
+
 
 Each interval of the merged mask was given a repeat class from the overlapping annotations (priority EDTA > RepeatModeler > Dfam). The script writes the final repeat BED/GFF3 and summaries per class and per repeat group.
 
