@@ -958,7 +958,7 @@ grid.rect(gp = gpar(fill = "white", col = NA))  # <- Add white rectangle
 grid.draw(gList(venn_plot))
 ```
 
-### 2.2. Gene prediction and assessment
+### 2.2. Gene prediction
 #### 2.2.1. BRAKER3 using short RNA reads
 
 Short-read RNA-sequencing data from Álvarez-Campos (2024) were aligned to the genome for use as evidence in BRAKER3.
