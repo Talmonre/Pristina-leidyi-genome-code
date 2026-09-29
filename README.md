@@ -38,20 +38,15 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
     - [2.1.2 Repeat annotation using RepeatMasker](#212-repeat-annotation-using-repeatmasker)
     - [2.1.3 Merge masking](#213-merge-masking)
     - [2.1.4 Comparison of masking tools](#214-comparison-of-masking-tools)
+  - [2.2 Gene prediction and assessment](#22-gene-prediction-and-assessment)
+    - [2.2.1 BRAKER3 using short RNA reads](#221-braker3-using-short-RNA-reads)
+    - [2.2.2 BRAKER3 using protein and short RNA reads](#222-braker3-using-protein-and-short-RNA-reads)
+    - [2.2.3. TSEBRA](#223-tsebra)
+   
 
-- [5. Repeat annotation and masking](#5-repeat-annotation-and-masking)
-  - [5.1 Repeat annotation using EDTA](#51-edta)
-  - [5.2 RepeatModeler and RepeatMasker](#52-repeatmodeler-and-repeatmasker)
-  - [5.3 Merged masking](#53-merged-masking)
-  - [5.4 Venn diagram](#54-venn-diagram)
+
   - [5.5 Repeat classification and summary](#55-repeat-classification-and-summary)
-- [6. Gene prediction](#6-gene-prediction)
-  - [6.1 Protein evidence](#61-protein-evidence)
-  - [6.2 Short-read RNA-seq alignment](#62-short-read-rna-seq-alignment)
-  - [6.3 Iso-Seq transcripts](#63-iso-seq-transcripts)
-  - [6.4 BRAKER3](#64-braker3)
-  - [6.5 TSEBRA](#65-tsebra)
-  - [6.6 Gene models, proteins and BUSCO](#66-gene-models-proteins-and-busco)
+
 - [7. Proteome taxonomic screen](#7-proteome-taxonomic-screen)
 - [8. Functional annotation](#8-functional-annotation)
 - [9. Phylogenomics](#9-phylogenomics)
@@ -969,6 +964,429 @@ grid.draw(gList(venn_plot))
 
 ```
 
+### 2.2. Gene prediction and assessment
+
+#### 2.2.1. BRAKER3 using short RNA reads
+
+Short-read RNA-sequencing data from Álvarez-Campos (2024) were aligned to the genome for use as evidence in BRAKER3.
+
+```bash
+
+echo "-----------------------------------------"
+echo " SHORT RNA READS ALIGNMENT TO GENOME "
+echo "-----------------------------------------"
+
+QUERY=genome.sc26.softmasked.fasta
+INPUT_DIR=Short_RNA_directory
+OUTPUT_DIR=Output_directory
+
+mkdir -p "$OUTPUT_DIR"
+cd "$INPUT_DIR" || exit
+
+# Array to store all sorted BAM paths for merging
+SORTED_BAMS=()
+
+# Loop through all _1.fastq files
+for R1 in *_1.fastq; do
+  R2="${R1/_1.fastq/_2.fastq}"
+
+  if [[ -f "$R2" ]]; then
+    SAMPLE_NAME="${R1%%_1.fastq}"
+    SAM="${OUTPUT_DIR}/${SAMPLE_NAME}.sam"
+    BAM="${OUTPUT_DIR}/${SAMPLE_NAME}.bam"
+    SORTED_BAM="${OUTPUT_DIR}/${SAMPLE_NAME}.sorted.bam"
+    LOG="${OUTPUT_DIR}/${SAMPLE_NAME}.output.log"
+
+    echo "Aligning $R1 and $R2 to genome..."
+    minimap2 -ax splice -t 32 "$QUERY" "$R1" "$R2" -o "$SAM" 2>&1 | tee "$LOG"
+
+    echo "Converting SAM to BAM for $SAMPLE_NAME..."
+    samtools view -@ 32 -bS "$SAM" > "$BAM"
+
+    echo "Sorting BAM file for $SAMPLE_NAME..."
+    samtools sort -@ 32 "$BAM" -o "$SORTED_BAM"
+
+    echo "Indexing sorted BAM file for $SAMPLE_NAME..."
+    samtools index "$SORTED_BAM"
+
+    # Add to array for merging
+    SORTED_BAMS+=("$SORTED_BAM")
+
+    echo "Done with $SAMPLE_NAME. Final file: $SORTED_BAM"
+  else
+    echo "Warning: No matching _2.fastq file found for $R1"
+  fi
+done
+
+# Merge all sorted BAMs
+if [[ ${#SORTED_BAMS[@]} -gt 0 ]]; then
+  MERGED_BAM="${OUTPUT_DIR}/merged.bam"
+  MERGED_SORTED_BAM="${OUTPUT_DIR}/merged.sorted.bam"
+
+  echo "Merging all sorted BAM files..."
+  samtools merge -@ 32 "$MERGED_BAM" "${SORTED_BAMS[@]}"
+
+  echo "Sorting merged BAM file..."
+  samtools sort -@ 32 "$MERGED_BAM" -o "$MERGED_SORTED_BAM"
+
+  echo "Indexing merged and sorted BAM file..."
+  samtools index "$MERGED_SORTED_BAM"
+
+  echo "Cleaning up intermediate files (.sam and .bam)..."
+  find "$OUTPUT_DIR" -type f \( -name "*.sam" -o -name "*.bam" \) ! -name "*.sorted.bam" -delete
+
+  echo "Cleanup complete. Kept only sorted BAMs and merged outputs."
+  echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). Final merged and indexed BAM: $MERGED_SORTED_BAM"
+else
+  echo "No BAM files to merge."
+fi
+
+echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All files are inside: $OUTPUT_DIR"
+
+```
+
+Short-read RNA-seq data were used as evidence in BRAKER3. BUSCO was used to assess the completeness of the predicted proteome.
+
+```bash
+
+AUGUSTUS_CONFIG_PATH=config
+SINGULARITY=braker3.sif"
+QUERY=genome.sc26.softmasked.fasta
+BAM_FILES=merged.sorted.bam"
+OUTPUT_DIR=Output_directory
+BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
+BUSCO_DB=metazoa_odb10
+
+mkdir -p "$OUTPUT_DIR" "$BUSCO_DIR"
+cd "$OUTPUT_DIR" || exit
+BUSCO_OUTPUT_NAME="$(basename $OUTPUT_DIR)_BUSCO"
+
+echo "-----------------------------------------"
+echo " 1. BRAKER3 USING RNA EVIDENCE"
+echo "-----------------------------------------"
+
+echo "Starting BRAKER3 at $(date)"
+singularity exec --env AUGUSTUS_CONFIG_PATH="$AUGUSTUS_CONFIG_PATH" "$SINGULARITY" braker.pl --genome="$QUERY" --bam="$BAM_FILES" --softmasking --threads 32
+
+echo "Gene prediction completed at $(date). See results in $OUTPUT_DIR/braker"
+
+echo "-----------------------------------------"
+echo " 2. CLEAN UP PROTEIN FILE FOR BUSCO"
+echo "-----------------------------------------"
+
+RAW_PROTEOME="$OUTPUT_DIR/braker/braker.aa"
+CLEAN_PROTEOME="$OUTPUT_DIR/braker/braker_clean.aa"
+
+# Remove asterisks from the protein sequences to run BUSCO
+sed 's/\*//g' "$RAW_PROTEOME" > "$CLEAN_PROTEOME"
+
+echo "Cleaned protein file created: $CLEAN_PROTEOME"
+
+echo "-----------------------------------------"
+echo " 3. BUSCO ANALYSIS"
+echo "-----------------------------------------"
+
+busco -i "$CLEAN_PROTEOME" -l "$BUSCO_DB" -o "$BUSCO_OUTPUT_NAME" -m prot -c 32
+
+mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
+
+echo "-----------------------------------------"
+echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "-----------------------------------------"
+
+```
+
+#### 2.2.2. BRAKER3 using protein and short RNA reads
+
+Protein sequences from the class Clitellata (phylum: Annelida) were retrieved from the NCBI database for use as evidence in BRAKER3.
+
+```bash
+
+SEARCH_TERM='Clitellata[Organism]'
+BATCH_SIZE=500
+OUTFILE="clitellata_proteins.fasta"
+
+
+# -----------------------------------------
+# Step 1: Get all protein IDs
+# -----------------------------------------
+
+echo "Searching NCBI for: $SEARCH_TERM"
+
+esearch -db protein -query "$SEARCH_TERM" | \
+    efetch -format uid > "$ID_FILE"
+
+TOTAL_IDS=$(wc -l < "$ID_FILE")
+
+echo "Found $TOTAL_IDS protein records."
+
+# -----------------------------------------
+# Step 2: Fetch protein sequences in batches
+# -----------------------------------------
+
+Create the output file
+> "$OUTFILE"
+
+# Split the protein IDs into batches
+split -l "$BATCH_SIZE" "$ID_FILE" ids_batch_
+
+# Fetch each batch and append it to the output FASTA
+for f in ids_batch_*; do
+
+    echo "Fetching batch: $f"
+
+    BATCH_IDS=$(paste -sd, "$f")
+
+    efetch \
+        -db protein \
+        -id "$BATCH_IDS" \
+        -format fasta > "$TMP_FILE"
+
+    cat "$TMP_FILE" >> "$OUTFILE"
+
+    # Pause between NCBI requests
+    sleep 1
+
+done
+
+# -----------------------------------------
+# Step 3: Clean up temporary files
+# -----------------------------------------
+
+rm ids_batch_* "$TMP_FILE" "$ID_FILE"
+echo "Download complete: $OUTFILE"
+
+```
+
+Short-read RNA-seq data from the previous step and protein sequences were used together as evidence in BRAKER3. BUSCO was used to assess the completeness of the predicted proteome.
+
+```bash
+
+AUGUSTUS_CONFIG_PATH=config
+SINGULARITY=braker3.sif"
+QUERY=genome.sc26.softmasked.fasta
+BAM_FILES=merged.sorted.bam"
+PROT=clitellata_proteins.fasta"
+OUTPUT_DIR=Output_directory
+BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
+BUSCO_DB=metazoa_odb10
+
+mkdir -p "$OUTPUT_DIR" "$BUSCO_DIR"
+cd "$OUTPUT_DIR" || exit
+BUSCO_OUTPUT_NAME="$(basename $OUTPUT_DIR)_BUSCO"
+
+echo "-----------------------------------------"
+echo " 1. BRAKER3 USING RNA & PROTEIN EVIDENCE"
+echo "-----------------------------------------"
+
+echo "Starting BRAKER3 at $(date)"
+singularity exec --env AUGUSTUS_CONFIG_PATH="$AUGUSTUS_CONFIG_PATH" "$SINGULARITY" braker.pl --genome="$QUERY" --bam="$BAM_FILES" --prot_seq="$PROT" --softmasking --threads 32 
+
+echo "Gene prediction completed at $(date). See results in $OUTPUT_DIR/braker"
+
+echo "-----------------------------------------"
+echo " 2. CLEAN UP PROTEIN FILE FOR BUSCO"
+echo "-----------------------------------------"
+
+RAW_PROTEOME="$OUTPUT_DIR/braker/braker.aa"
+CLEAN_PROTEOME="$OUTPUT_DIR/braker/braker_clean.aa"
+
+# Remove asterisks from the protein sequences to run BUSCO
+sed 's/\*//g' "$RAW_PROTEOME" > "$CLEAN_PROTEOME"
+
+echo "Cleaned protein file created: $CLEAN_PROTEOME"
+
+echo "-----------------------------------------"
+echo " 3. BUSCO ANALYSIS"
+echo "-----------------------------------------"
+
+busco -i "$CLEAN_PROTEOME" -l "$BUSCO_DB" -o "$BUSCO_OUTPUT_NAME" -m prot -c 32
+
+mv "${BASENAME}_BUSCO" "$BUSCO_DIR"
+
+echo "-----------------------------------------"
+echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "-----------------------------------------"
+
+```
+#### 2.2.3. TSEBRA
+
+The outputs from BRAKER3 were combined with long-read sequencing data in TSEBRA, with priority given to RNA-sequencing evidence.
+
+Long reads were aligned to the genome for use as evidence in TSEBRA.
+
+
+```bash
+
+echo "-----------------------------------------"
+echo " LONG RNA READS ALIGNMENT TO GENOME "
+echo "-----------------------------------------"
+
+QUERY=genome.sc26.softmasked.fasta
+READS_FQ=long_RNA_reads.fasta
+OUTPUT_DIR=Output_directory
+
+# Extract base name of query file
+BASENAME=$(basename "$QUERY" .fasta)
+
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+minimap2 -ax map-pb "$QUERY" "$READS_FQ" -t 32 -o "$OUTPUT_DIR/${BASENAME}.sam" 2>&1 | tee "$OUTPUT_DIR/${BASENAME}.log"
+
+# Convert SAM to BAM, sort and index
+samtools view -S -b "$OUTPUT_DIR/${BASENAME}.sam" > "$OUTPUT_DIR/${BASENAME}.bam"
+samtools sort "$OUTPUT_DIR/${BASENAME}.bam" -@ 32 -o "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+samtools index "$OUTPUT_DIR/${BASENAME}.sorted.bam"
+
+echo "Alignment completed on $(date '+%Y-%m-%d %H:%M:%S')!"
+
+echo "Creating gtf for TSEBRA"
+
+stringtie "$OUTPUT_DIR/${BASENAME}.sorted.bam" -p 32 -o "$OUTPUT_DIR/${BASENAME}.gtf"
+
+echo "Results are stored in \"$OUTPUT_DIR\""2
+
+```
+
+The outputs from BRAKER3 were combined with long-read RNA-sequencing data using TSEBRA.
+
+The tsebra.conf configuration file was used to run TSEBRA.
+
+```text
+
+# Weight for each hint source
+P 0.9
+E 1
+C 0.7
+M 0.4
+# Required fraction of supported introns or supported start/stop codons for a transcript
+intron_support 0.8
+stasto_support 1
+# Allowed difference for each feature
+e_1 0.0
+e_2 0.5
+e_3 0.096
+e_4 0.02
+e_5 0.18
+e_6 0.18
+
+```
+
+TSEBRA
+
+```bash
+
+echo "--------------------------------------------------"
+echo " TSEBRA USING BRAKER3 OUTPUT AND LONG READ RNA"
+echo "--------------------------------------------------"
+
+GTF_1=shortRNA.braker.gtf	
+GTF_2=shortRNA.prot.braker.gtf
+
+HINTFILE_GFF_1=shortRNA.hintsfile.gff
+HINTFILE_GFF_2=shortRNA.prot.hintsfile.gff"
+
+RNA_GTF=longRNA.gtf
+CONF_FILE=tsebra.con
+
+OUTPUT_DIR=Output_directory
+
+PREFIX="Pristina"
+OUTPUT_FILE="$OUTPUT_DIR/TSEBRA_${PREFIX}.gtf"
+
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+# Check if output file exists and create a unique name
+if [[ -e "$OUTPUT_FILE" ]]; then
+    i=1
+    while [[ -e "${OUTPUT_DIR}/TSEBRA_${PREFIX}_${i}.gtf" ]]; do
+        ((i++))
+    done
+    OUTPUT_FILE="${OUTPUT_DIR}/TSEBRA_${PREFIX}_${i}.gtf"
+    echo "Output file exists. Using new filename: $OUTPUT_FILE"
+fi
+
+# Add the long read RNA using the -k option
+echo "Starting TSEBRA at $(date)"
+echo "Using GTFs: $GTF_1 and $GTF_2"
+echo "Using hints: $HINTFILE_GFF_1 and $HINTFILE_GFF_2"
+echo "Using long read RNA GTF: $RNA_GTF"
+echo "Using config: $CONF_FILE"
+
+tsebra.py --gtf "$GTF_1","$GTF_2" --hintfiles "$HINTFILE_GFF_1","$HINTFILE_GFF_2" -k "$RNA_GTF" --cfg "$CONF_FILE" --out "$OUTPUT_DIR/TSEBRA_${PREFIX}.gtf" -v 2
+
+echo "-------------------------------------------------------------------"
+echo "TSEBRA gene prediction completed on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Results stored in: $OUTPUT_DIR"
+echo "-------------------------------------------------------------------"
+
+```
+
+Formatting the GTF produced by TSEBRA, converting GTF files to FASTA, and assessing the proteome using BUSCO.
+
+```bash
+
+TSEBRA_GTF=tsebra.output.gtf
+TSEBRA_FORMATTED_GTF=tsebra.format.gtf
+QUERY=genome.sc26.softmasked.fasta
+OUTPUT_DIR=Output_directory
+BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
+BUSCO_DB=metazoa_odb10
+BUSCO_OUTPUT_NAME="$(basename $OUTPUT_DIR)_BUSCO"
+
+PREFIX="Pristina"
+
+mkdir -p "$OUTPUT_DIR" "$BUSCO_DIR"
+
+echo "-------------------------------------------------------------------"
+echo "1. FORMATTING GTF PRODUCED BY TSEBRA"
+echo "-------------------------------------------------------------------"
+
+echo "Job starting on on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Using gtf: $TSEBRA_GTF"
+echo "Using genome: $QUERY"
+echo "New gtf: $TSEBRA_FORMATTED_GTF"
+
+awk 'BEGIN{OFS="\t"} 
+    $3 == "gene" { print $1, $2, $3, $4, $5, $6, $7, $8, "gene_id \""$9"\";" }
+    $3 == "transcript" { 
+        split($9, a, /\./); 
+        gene_id = a[1]; 
+        print $1, $2, $3, $4, $5, $6, $7, $8, "gene_id \""gene_id"\"; transcript_id \""$9"\";" 
+    }
+    $3 != "gene" && $3 != "transcript" { print }
+' "$TSEBRA_GTF" > "$TSEBRA_FORMATTED_GTF"
+
+echo "-------------------------------------------------------------------"
+echo "2. CONVERTING GTF TO FASTA"
+echo "-------------------------------------------------------------------"
+
+gffread "$TSEBRA_FORMATTED_GTF" -g "$GENOME" -y "$OUTPUT_DIR/TSEBRA_${PREFIX}_proteins.fasta"
+gffread "$TSEBRA_FORMATTED_GTF" -g "$GENOME" -x "$OUTPUT_DIR/TSEBRA_${PREFIX}_cds.fasta"
+
+echo "Proteins and cds saved in $OUTPUT_DIR"
+
+echo "-------------------------------------------------------------------"
+echo "3. BUSCO ANALYSIS"
+echo "-------------------------------------------------------------------"
+
+PROTEOME=TSEBRA_${PREFIX}_proteins.fasta
+
+busco -i "$PROTEOME" -l "$BUSCO_DB" -o "$BUSCO_OUTPUT_NAME" -m prot -c 32
+
+mv "$BUSCO_OUTPUT_NAME" "$BUSCO_DIR"
+
+echo "-------------------------------------------------------------------"
+echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "-------------------------------------------------------------------"
+
+```
+
+
+
+
 
 
 
@@ -1174,7 +1592,6 @@ e_4 0.02
 e_5 0.18
 e_6 0.18
 ```
-
 ### 6.6 Gene models, proteins and BUSCO
 
 ```bash
