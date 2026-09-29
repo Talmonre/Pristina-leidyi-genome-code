@@ -25,7 +25,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [1.7 DIAMOND BLASTx](#17-diamond-blastx)
   - [1.8 Read coverage](#18-read-coverage)
   - [1.9 Taxify](#19-taxify)
-  - [1.10 BlobTools, BUSCO and snail plot (BlobToolkit)](#110-blobtools-,-busco-and-snail-plot-(blobtoolkit))
+  - [1.10 BlobTools, BUSCO and snail plot (BlobToolkit)](#110-blobtools-busco-and-snail-plot-blobtoolkit)
   - [1.11 Hi-C scaffolding, Alignment and YaHS](#111-hi-c-scaffolding,-alignment-and-yahs)
   - [1.12 Scaffold size filter](#112-scaffold-size-filter)
   - [1.13 Contact map](#113-contact-map)
