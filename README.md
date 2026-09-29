@@ -32,11 +32,15 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [1.14 Retain longest scaffolds](#114-retain-longest-scaffolds)
   - [1.15 BLASTn](#115-blastn)
   - [1.16 Rename headers](#116-rename-headers)
-  
 - [2. Gene prediction and assessment](#2-gene-prediction-and-assessment)
+  - [2.1 Repeat annotation and masking](#21-repeat-annotation-and-masking)
+    - [2.1.1 Repeat annotation using EDTA](#211-repeat-annotation-using-edta)
+    - [2.1.2 Repeat annotation using RepeatMasker](#212-repeat-annotation-using-repeatmasker)
+    - [2.1.3 Merge masking](#213-merge-masking)
+    - [2.1.4 Comparison of masking tools](#214-comparison-of-masking-tools)
 
 - [5. Repeat annotation and masking](#5-repeat-annotation-and-masking)
-  - [5.1 EDTA](#51-edta)
+  - [5.1 Repeat annotation using EDTA](#51-edta)
   - [5.2 RepeatModeler and RepeatMasker](#52-repeatmodeler-and-repeatmasker)
   - [5.3 Merged masking](#53-merged-masking)
   - [5.4 Venn diagram](#54-venn-diagram)
@@ -693,6 +697,8 @@ QUERY=genome.sc26.fasta
 EDTA.pl --genome "$QUERY" --sensitive 1 --anno 1 --threads 32 2>&1 | tee EDTA.log
 ```
 
+#### 2.1.2. Repeat annotation using RepeatMasker
+
 Repeat annotation using RepeatMasker and a *de novo* repeat library generated with RepeatModeler.
 
 ```bash
@@ -817,6 +823,8 @@ echo "---------------------------------------------"
 
 ```
 
+#### 2.1.3. Merge masking
+
 The three outputs from the masking steps were merged into a single non-overlapping masked genome.
 The inputs required to generate a Venn diagram comparing the three tools were also produced within this script.
 Note: BEDTools is required to run this script.
@@ -886,6 +894,8 @@ echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All results are inside: $OUTPUT
 mv ../merged_masking.log  "$OUTPUT_DIR"
 
 ```
+
+#### 2.1.4. Comparison of masking tools
 
 A Venn diagram was generated in R statistical software to compare the outputs from the three tools.
 
