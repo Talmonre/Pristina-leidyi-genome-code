@@ -680,7 +680,7 @@ awk 'BEGIN{FS="\n"; OFS="\n"}
   print $0 >> "'"$output"'"
 }' "$input"
 ```
-## 2. Gene prediction and assessment
+## 2. Genome content and functional annotation
 
 ### 2.1 Repeat annotation and masking
 
