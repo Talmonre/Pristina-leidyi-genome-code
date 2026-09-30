@@ -81,8 +81,8 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 | Python / NumPy / Matplotlib | 3.10.14 / 1.26.4 / 3.9.1 | 3 |
 | QUAST | 5.3.0 | 4 |
 | DIAMOND | 2.0.13 | 4, 7 |
-| BlobTools | – | 4 |
-| BlobToolKit | – | 4 |
+| BlobTools | 1.0 | 4 |
+| BlobToolKit | 2.0 | 4 |
 | BUSCO (metazoa_odb10) | 5.8.2 | 4, 6 |
 | EDTA | 2.0.0 | 5 |
 | RepeatModeler / RepeatMasker | 2.0.6 / 4.1.8 | 5 |
@@ -1040,9 +1040,9 @@ Short-read RNA-seq data were used as evidence in BRAKER3. BUSCO was used to asse
 
 ```bash
 AUGUSTUS_CONFIG_PATH=config
-SINGULARITY=braker3.sif"
+SINGULARITY=braker3.sif
 QUERY=genome.sc26.softmasked.fasta
-BAM_FILES=merged.sorted.bam"
+BAM_FILES=merged.sorted.bam
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
 BUSCO_DB=metazoa_odb10
@@ -1092,7 +1092,7 @@ Protein sequences from the class Clitellata (phylum: Annelida) were retrieved fr
 ```bash
 SEARCH_TERM='Clitellata[Organism]'
 BATCH_SIZE=500
-OUTFILE="clitellata_proteins.fasta"
+OUTFILE=clitellata_proteins.fasta
 
 # -----------------------------------------
 # Step 1: Get all protein IDs
@@ -1148,10 +1148,10 @@ Short-read RNA-seq data from the previous step and protein sequences were used t
 
 ```bash
 AUGUSTUS_CONFIG_PATH=config
-SINGULARITY=braker3.sif"
+SINGULARITY=braker3.sif
 QUERY=genome.sc26.softmasked.fasta
-BAM_FILES=merged.sorted.bam"
-PROT=clitellata_proteins.fasta"
+BAM_FILES=merged.sorted.bam
+PROT=clitellata_proteins.fasta
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
 BUSCO_DB=metazoa_odb10
