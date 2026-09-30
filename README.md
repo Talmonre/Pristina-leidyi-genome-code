@@ -1947,7 +1947,9 @@ emapper.py \
 ## 3. Gene family evolution in phylogenetic context
 
 ### 3.1. Phylogenomic analysis
-  
+
+#### 3.1.1. Orthofinder
+
 Prior to Orthofinder, protein IDs were made uniquely identifiable by species for downstream comparative analyses. The below script adds the .faa filename (species name) as a prefix to each protein FASTA header.
 
 ```bash
@@ -1970,8 +1972,6 @@ done
 
 echo "Done."
 ```
-
-#### 3.1.1. Orthofinder
 
 ```bash
 PROT_DIR=Protein_Data
