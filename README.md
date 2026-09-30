@@ -1357,7 +1357,116 @@ echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-------------------------------------------------------------------"
 ```
 
+### 2.3. Proteome taxonomic assessment
 
+DIAMOND BLASTp against the NCBI nr database was performed to further assess the taxonomic composition of the proteome.
+
+```bash
+QUERY=proteins.fasta
+DIAMOND_PATH=diamond
+DB_PATH=nr.dmnd
+OUTPUT_DIR=Output_directory
+
+PREFIX="Pristina"
+
+echo "Starting blastp at $(date)"
+
+"$DIAMOND_PATH" blastp\
+ --query "$QUERY"\
+ --db "$DB_PATH"\
+ --evalue 1e-5\
+ --max-target-seqs 1\
+ --outfmt 6 qseqid sseqid bitscore pident length qlen slen evalue\
+ --more-sensitive \
+ --out "$OUTPUT_DIR/${PREFIX}_blastp.out" \
+ --threads 32
+
+echo "-------------------------------------------------------------------------------"
+echo " blastp completed."
+echo " See results in $OUTPUT_DIR"
+echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "-------------------------------------------------------------------------------"
+```
+
+The protein BLAST results were mapped back to scaffolds by linking annotated proteins to their corresponding scaffolds and calculating query and subject coverage. The three best-scoring hits for each scaffold were then selected to assess its taxonomic identity.
+
+```r 
+library(dplyr)
+library(readr)
+library(stringr)
+
+## ---- Read GTF (AUGUSTUS-style) ----
+gtf <- read_tsv(
+  gtf_file,
+  col_names = c(
+    "scaffold", "source", "type",
+    "start", "end", "score",
+    "strand", "phase", "gene_id"
+  ),
+  comment = "#"
+)
+
+## ---- Keep only gene-level info ----
+genes <- gtf %>%
+  filter(type == "transcript") %>%
+  mutate(
+    gene_id = str_extract(gene_id, '(?<=transcript_id ")[^"]+')
+  ) %>%
+  select(scaffold, gene_id)
+  
+## ---- Read BLASTP output ----
+# Make sure the col order is correct
+blast <- read_tsv(
+  blast_file,
+  col_names = c(
+    "qseqid",  
+    "sseqid",
+    "bitscore",
+    "pident",
+    "length",
+    "qlen",
+    "slen",
+    "evalue"
+  )
+)
+
+## ---- Merge ----
+genes_with_blast <- genes %>%
+  left_join(blast, by = "qseqid")
+genes_with_blast <- na.omit(genes_with_blast)
+
+## ---- Merge and sort by scaffold + BLAST hit ----
+genes_with_blast_sorted <- genes_with_blast %>%
+  arrange(scaffold, sseqid)
+  
+## ---- Write output ----
+write_csv(genes_with_blast_sorted, "out_file.csv")
+
+## ---- Compute query and subject coverage ----
+genes_with_blast <- genes_with_blast %>%
+  mutate(
+    query_cov = ifelse(!is.na(length) & !is.na(qlen), length / qlen, NA_real_),
+    subject_cov = ifelse(!is.na(length) & !is.na(slen), length / slen, NA_real_),
+    combined_score = bitscore * query_cov * subject_cov
+  )
+  
+write_csv(genes_with_blast, "compute_query.csv")
+
+## ---- Select top three hits per scaffold ----
+top_n <- 3  
+
+top_hits_per_scaffold <- genes_with_blast %>%
+  filter(!is.na(combined_score)) %>%
+  group_by(scaffold) %>%
+  arrange(desc(combined_score)) %>%
+  slice_head(n = top_n) %>%
+  ungroup()
+
+write_csv(top_hits_per_scaffold, "bestblast_out_file.csv")
+```
+
+Taxify was also run as described in Section 1.9 to obtain taxonomic assignments for the protein BLAST hits. The taxonomic assignments and the top three BLAST hits for each scaffold were then inspected manually.
+Scaffold 24 was identified as potential contamination and was removed.
 
 
 
