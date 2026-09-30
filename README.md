@@ -1230,8 +1230,6 @@ stringtie "$OUTPUT_DIR/${BASENAME}.sorted.bam" -p 32 -o "$OUTPUT_DIR/${BASENAME}
 echo "Results are stored in \"$OUTPUT_DIR\""2
 ```
 
-The outputs from BRAKER3 were combined with long-read RNA-sequencing data using TSEBRA.
-
 The tsebra.conf configuration file was used to run TSEBRA.
 
 ```text
