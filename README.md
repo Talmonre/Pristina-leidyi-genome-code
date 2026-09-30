@@ -45,7 +45,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [2.3 Proteome taxonomic assessment](#23-proteome-taxonomic-assessment)
   - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
   - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
-
+  - [2.6. Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
 
   
 - [8. Functional annotation](#8-functional-annotation)
@@ -1853,7 +1853,40 @@ echo "  - final_repeat_class_summary_bp.txt: Detailed class breakdown"
 echo "  - final_repeat_class_summary_genome_percent.txt: Class percentages"
 ```
 
+### 2.6. Telomeric and centromeric regions
 
+The quarTeT pipeline was used to identify telomeric and centromeric regions.
+TE annotations generated using EDTA were provided as input for CentroMiner, as recommended by the quarTeT workflow.
+
+```bash
+QUERY=genome.sc25.fasta
+TE_ANNOTATION=EDTA.TEanno.gff3
+SPECIES_TYPE="animal"
+OUTPUT_DIR=Output_directory
+
+PREFIX="Pristina"
+
+mkdir "$OUTPUT_DIR"
+cd "$OUTPUT_DIR"
+
+echo "[Step 1/2] Running TeloExplorer for telomere identification..."
+
+quartet TeloExplorer \
+    -i "$QUERY" \
+    -c "$SPECIES_TYPE" \
+    -p "${PREFIX}_telo"
+
+echo "TeloExplorer complete."
+
+echo "[Step 2/2] Running CentroMiner for centromere prediction..."
+
+quartet CentroMiner \
+        -i "$QUERY" \
+        --TE "$TE_ANNOTATION" \
+        -p "${PREFIX}_centro"
+		
+echo "CentroMiner complete."
+```
 
 
 
