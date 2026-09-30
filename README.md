@@ -43,6 +43,8 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
     - [2.2.2 BRAKER3 using protein and short RNA reads](#222-braker3-using-protein-and-short-RNA-reads)
     - [2.2.3. TSEBRA](#223-tsebra)
   - [2.3 Proteome taxonomic assessment](#23-proteome-taxonomic-assessment)
+  - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
+
 
 
   - [5.5 Repeat classification and summary](#55-repeat-classification-and-summary)
@@ -1468,7 +1470,59 @@ write_csv(top_hits_per_scaffold, "bestblast_out_file.csv")
 Taxify was also run as described in Section 1.9 to obtain taxonomic assignments for the protein BLAST hits. The taxonomic assignments and the top three BLAST hits for each scaffold were then inspected manually.
 Scaffold 24 was identified as potential contamination and was removed.
 
+### 2.4. Scaffold removal and final genome assembly
 
+Scaffold 24 was removed from the genome assembly.
+
+```bash
+seqkit grep -v -p "scaffold_24" genome.sc26.fasta > genome.sc25.fasta
+```
+
+The best BLAST hit for each scaffold was retained based on the combined score calculated in Section 2.3. Section 1.10 was then repeated to obtain the final genome assembly metrics.
+The masked genomes were merged again as described in Section 2.1.3, with an additional step added to the script to remove scaffold 24. This step was inserted between steps 1 and 3 of the previous script. Section 2.1.4 was also repeated to generate the final Venn diagram.
+
+```bash
+# ==== STEP 2. REMOVE scaffold 24 from ALL BEDs ====
+echo "[2/6] Filtering scaffold 24..."
+
+for bed in "${NAME_RAW}_RepeatMod.bed" \
+           "${NAME_RAW}_dfam.bed" \
+           "${NAME_RAW}_edta.bed"
+do
+    awk '$1!="scaffold_24"' "$bed" > tmp.bed
+    mv tmp.bed "$bed"
+done
+```
+
+To remove the transcripts corresponding to scaffold 24 from the proteome, the transcript IDs associated with scaffold 24 were first extracted and saved to a TXT file. A map linking scaffolds to transcripts was also created.
+
+```bash
+awk '$3=="transcript" {
+    match($0, /transcript_id "[^"]+"/)
+    transcript=substr($0, RSTART+15, RLENGTH-16)
+    print $1 "\t" transcript
+}' tsebra.format.gtf > scaffold24_transcripts_map.tsv
+```
+
+```bash
+awk '$1=="scaffold_24" {print $2}' scaffold24_transcripts_map.tsv > scaffold24_transcripts.txt
+```
+
+Scaffold 24 was removed from the GTF produced by TSEBRA in Section 2.2.3.
+
+```bash
+awk '$1 != "scaffold_24"' tsebra.format.gtf > tsebra.format.sc25.gtf
+```
+
+Transcripts corresponding to scaffold 24 were removed from the proteome and CDS files.
+
+```bash
+seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc25.fasta
+```
+
+```bash
+seqkit grep -v -f scaffold24_transcripts.txt cds.fasta > cds.sc25.fasta
+```
 
 
 
