@@ -47,13 +47,13 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
   - [2.6. Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
   - [2.7. Functional annotation](#27-functional-annotation)
+- [3. Gene family evolution in phylogenetic context](#3-gene-family-evolution-in-phylogenetic-context)
+  - [3.1 Phylogenomic analysis](#31-phylogenomic-analysis)
+     - [3.1.1 Orthofinder](#311-orthofinder)
+     - [3.1.2 IQTREE and ASTRAL](#312-iqtree-and-astral)
+     - [3.1.3 Phylogenetic tree](#313-phylogenetic-tree)
 
-  
 
-- [9. Phylogenomics](#9-phylogenomics)
-  - [9.1 Proteome headers and species mapping](#91-proteome-headers-and-species-mapping)
-  - [9.2 OrthoFinder](#92-orthofinder)
-  - [9.3 Gene trees and species tree](#93-gene-trees-and-species-tree)
 - [10. Gene family evolution](#10-gene-family-evolution)
   - [10.1 Ultrametric tree](#101-ultrametric-tree)
   - [10.2 CAFE5 input](#102-cafe5-input)
@@ -1944,81 +1944,221 @@ emapper.py \
   --override
   ```
 
+## 3. Gene family evolution in phylogenetic context
 
-
-
-
-## 9. Phylogenomics
-
-### 9.1 Proteome headers and species mapping
-
-Protein headers were prefixed with the species name (file name), and a gene-to-species map was built for ASTRAL.
+### 3.1. Phylogenomic analysis
+  
+Prior to Orthofinder, protein IDs were made uniquely identifiable by species for downstream comparative analyses. The below script adds the .faa filename (species name) as a prefix to each protein FASTA header.
 
 ```bash
-PROT_DIR=Prot_Data
+input_dir=Protein_Data
+set -euo pipefail
 
-for file in "$PROT_DIR"/*.faa; do
-    species=$(basename "$file" .faa)
-    awk -v sp="$species" '/^>/ {print ">" sp "_" substr($0, 2); next} {print}' "$file" > "${file}.tmp"
-    mv "${file}.tmp" "$file"
+files=("$input_dir"/*.faa)
+
+for file in "${files[@]}"; do
+    species=$(basename "$file")
+    species="${species%.*}"
+    echo "Processing: $file -> ${species}_scaffold"
+    tmp="${file}.tmp"
+    awk -v sp="$species" '
+        /^>/ {print ">" sp "_" substr($0,2); next}
+        {print}
+    ' "$file" > "$tmp"
+    mv "$tmp" "$file"
 done
+
+echo "Done."
+```
+
+#### 3.1.1. Orthofinder
+
+```bash
+PROT_DIR=Protein_Data
+OUTPUT_DIR=Output_directory
+PREFIX="Pristina"
+
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+echo "Starting Orthofinder on $(date '+%Y-%m-%d %H:%M:%S')"
+orthofinder -f "$PROT_DIR" -t 32 -a 32 -o "$OUTPUT_DIR/${PREFIX}orthofinder_out_$(date +%Y%m%d_%H%M%S)"
+
+echo "----------------------------------------------------------------------"
+echo "Orthofinder completed. See results in $OUTPUT_DIR"
+echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
+echo "----------------------------------------------------------------------"
+```
+
+Prior to downstream analysis, a mapping file was created linking individual gene sequences to their respective species for species-tree inference with ASTRAL.
+
+```bash
+INPUT_DIR=Protein_Data
+OUTPUT="mapping.txt"
 
 awk '/^>/ {
-         h = substr($1, 2)
-         if (match(h, /^(.*)_[^_]+$/, m)) print h "\t" m[1]
-     }' "$PROT_DIR"/*.faa > mapping.txt
+    h=$1; sub(/^>/,"",h)
+    if (match(h,/^(.*)_[^_]+$/,m)) print h "\t" m[1]
+}' "$INPUT_DIR"/*.faa > "$OUTPUT"
 ```
 
-### 9.2 OrthoFinder
+#### 3.1.2. IQTREE and ASTRAL
+A phylogenetic tree was constructed using IQ-TREE and ASTRAL
 
 ```bash
-orthofinder -f Prot_Data -t 32 -a 32 -o orthofinder_out
-```
-
-### 9.3 Gene trees and species tree
-
-```bash
-RESULTS=orthofinder_out/Results
-OUTGROUP=Pecten_maximus
-PREFIX=Pristina
+ORTHOFINDER_RESULTS=Orthofinder_results_directory
+SINGLE_CP_ORTH_TXT=Orthogroups_SingleCopyOrthologues.txt
+SINGLE_CP_ORTH_FASTA_DIR="$ORTHOFINDER_RESULTS/Orthogroup_Sequences"
 THREADS=32
+OUTGROUP_NAME="Pecten_maximus"
+WORKDIR=Working_directory
+PREFIX="Pristina"
 
-mkdir -p SCOs Aligned_SCOs Trimmed_SCOs IQTREE/tmp IQTREE/gene_trees
+mkdir -p "$WORKDIR_DIR"/{Single_Copy_Orthologues,Aligned_SCOs,Trimmed_SCOs,IQTREE/tmp_genes,IQTREE/gene_trees,IQTREE/model_summary}
 
-# single-copy orthogroups
-while read -r og; do
-    cp "$RESULTS/Orthogroup_Sequences/${og}.fa" SCOs/
-done < "$RESULTS/Orthogroups/Orthogroups_SingleCopyOrthologues.txt"
+# ---------------------------------------------
+# STEP 1: COPY SINGLE COPY ORTHOLOGS
+# ---------------------------------------------
+echo "Step 1: Copy SCOs"
 
-# align, trim, concatenate
-for f in SCOs/*.fa; do
+while read og; do
+    cp "$SINGLE_CP_ORTH_FASTA_DIR/${og}.fa" "$WORKDIR/Single_Copy_Orthologues/"
+done < "$SINGLE_CP_ORTH_TXT"
+
+# ---------------------------------------------
+# STEP 2: ALIGNMENT (MAFFT)
+# ---------------------------------------------
+
+echo "Step 2: MAFFT alignment"
+
+for f in "$WORKDIR"/Single_Copy_Orthologues/*.fa; do
     base=$(basename "$f" .fa)
-    mafft --auto --thread "$THREADS" "$f" > "Aligned_SCOs/${base}.aln.fa"
-    clipkit "Aligned_SCOs/${base}.aln.fa" -m smart-gap -o "Trimmed_SCOs/${base}.trim.fa"
+    mafft --auto --thread "$THREADS" "$f" > "$WORKDIR/Aligned_SCOs/${base}.aln.fa"
 done
 
-AMAS.py concat -i Trimmed_SCOs/*.trim.fa -f fasta -d aa \
-               -p "${PREFIX}_partitions.txt" \
-               -t "${PREFIX}_concatenated_alignment.fa"
+# ---------------------------------------------
+# STEP 3: TRIMMING (CLIPKIT)
+# ---------------------------------------------
 
-# one IQ-TREE run (ModelFinder) per non-empty trimmed alignment, in parallel
-for f in Trimmed_SCOs/*.trim.fa; do
+echo "Step 3: ClipKIT trimming"
+
+for aln in "$WORKDIR"/Aligned_SCOs/*.aln.fa; do
+    base=$(basename "$aln" .aln.fa)
+    clipkit "$aln" -m smart-gap -o "$WORKDIR/Trimmed_SCOs/${base}.trim.fa"
+done
+
+# ---------------------------------------------
+# STEP 4: CONCATENATION (AMAS)
+# ---------------------------------------------
+
+echo "Step 4: AMAS concatenation"
+
+AMAS.py concat -i "$WORKDIR"/Trimmed_SCOs/*.trim.fa \
+               -f fasta -d aa \
+               -p "$WORKDIR/${PREFIX}_partitions.txt" \
+               -t "$WORKDIR/${PREFIX}_concatenated_alignment.fa"
+
+# ---------------------------------------------
+# STEP 5: IQ-TREE PREP
+# ---------------------------------------------
+
+echo "Step 5: Prepare IQ-TREE commands"
+
+TRIM_DIR="$WORKDIR/Trimmed_SCOs"
+TMP_DIR="$WORKDIR/IQTREE/tmp_genes"
+TREE_DIR="$WORKDIR/IQTREE/gene_trees"
+MODEL_DIR="$WORKDIR/IQTREE/model_summary"
+
+CMD_FILE="$WORKDIR/IQTREE/iqtree_commands.txt"
+MODEL_OUT="$MODEL_DIR/all_models.txt"
+
+rm -f "$CMD_FILE" "$MODEL_OUT"
+
+for f in "$TRIM_DIR"/*.trim.fa; do
     base=$(basename "$f" .trim.fa)
-    [ "$(grep -v '^>' "$f" | tr -d '\n' | wc -c)" -gt 0 ] || continue
-    echo "iqtree -s $f -m MFP -nt 1 --safe -pre IQTREE/tmp/${base} > /dev/null && cp IQTREE/tmp/${base}.treefile IQTREE/gene_trees/"
-done > iqtree_commands.txt
-parallel -j "$THREADS" < iqtree_commands.txt
 
-# best-fit model per gene
-for f in IQTREE/tmp/*.iqtree; do
-    printf '%s\t%s\n' "$(basename "$f" .iqtree)" "$(grep 'Best-fit model' "$f" | awk -F': ' '{print $2}')"
-done > all_models.txt
+    TOTAL=$(grep -v "^>" "$f" | tr -d '\n' | wc -c)
+    if (( TOTAL == 0 )); then
+        echo "Skipping $base (empty alignment)"
+        continue
+    fi
 
-# species tree
-cat IQTREE/gene_trees/*.treefile > all_gene_trees.tre
-astral4 -a mapping.txt -o "${PREFIX}.tre" all_gene_trees.tre
-nw_reroot "${PREFIX}.tre" "$OUTGROUP" > "${PREFIX}_rooted.tre"
+    TMP_FASTA="$TMP_DIR/${base}.fasta"
+    cp "$f" "$TMP_FASTA"
+
+    echo "iqtree -s $TMP_FASTA -m MFP -nt 1 --safe -pre $TMP_DIR/${base} > /dev/null && \
+cp $TMP_DIR/${base}.treefile $TREE_DIR/${base}.treefile && \
+model=\$(grep 'Best-fit model' $TMP_DIR/${base}.iqtree | awk -F': ' '{print \$2}') && \
+flock $MODEL_OUT echo -e '${base}\t'\$model >> $MODEL_OUT && \
+rm -f $TMP_FASTA $TMP_DIR/${base}.*" >> "$CMD_FILE"
+done
+
+# ---------------------------------------------
+# STEP 6: RUN IQ-TREE PARALLEL
+# ---------------------------------------------
+
+echo "Step 6: IQ-TREE parallel run"
+
+parallel -j 32 < "$CMD_FILE"
+
+# ---------------------------------------------
+# STEP 7: CONCAT TREESET
+# ---------------------------------------------
+
+echo "Step 7: Concatenate gene trees"
+
+cat "$TREE_DIR"/*.treefile > "$TREE_DIR/all_gene_trees.tre"
+
+# ---------------------------------------------
+# STEP 8: SPECIES TREE
+# ---------------------------------------------
+
+echo "Step 8: ASTRAL species tree"
+
+astral4 -a "$WORKDIR/mapping.txt" -o "$WORKDIR/${PREFIX}.tre" "$TREE_DIR/all_gene_trees.tre"
+
+# ---------------------------------------------
+# STEP 9: REROOT SPECIES TREE
+# ---------------------------------------------
+
+echo "Step 9: Reroot species tree"
+
+nw_reroot "$WORKDIR/${PREFIX}.tre" "$OUTGROUP_NAME" > "$WORKDIR/${PREFIX}_rooted.tre"
+
+echo "---------------------------------------------"
+echo "PIPELINE COMPLETE: $(date)"
+echo "Output: $WORKDIR"
+echo "---------------------------------------------"
 ```
+
+#### 3.1.3. Phylogenetic tree
+
+```r 
+
+library(ape)
+library(ggtree)
+library(ggplot2)
+
+tree <- read.tree("rooted.tre")
+
+ggtree(tree) +
+  geom_tiplab(size = 3) +
+    geom_text2(aes(label = ifelse(is.na(label),
+                                "",
+                                paste0(round(as.numeric(label) * 100, 0), "%"))),
+             size = 3,
+             hjust = -0.02) +
+  
+  theme_tree2(base_size = 10) +
+  theme(
+    axis.text.x = element_text(size = 8),
+    axis.title.x = element_blank(),
+  ) +
+  scale_y_reverse()
+```
+
+
+
 
 ## 10. Gene family evolution
 
