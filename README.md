@@ -42,7 +42,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
     - [2.2.1 BRAKER3 using short RNA reads](#221-braker3-using-short-RNA-reads)
     - [2.2.2 BRAKER3 using protein and short RNA reads](#222-braker3-using-protein-and-short-RNA-reads)
     - [2.2.3. TSEBRA](#223-tsebra)
-   
+  - [2.3 Proteome taxonomic assessment](#23-proteome-taxonomic-assessment)
 
 
   - [5.5 Repeat classification and summary](#55-repeat-classification-and-summary)
