@@ -44,7 +44,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
     - [2.2.3. TSEBRA](#223-tsebra)
   - [2.3 Proteome taxonomic assessment](#23-proteome-taxonomic-assessment)
   - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
-
+  - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
 
 
   - [5.5 Repeat classification and summary](#55-repeat-classification-and-summary)
@@ -1524,7 +1524,336 @@ seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc25.fast
 seqkit grep -v -f scaffold24_transcripts.txt cds.fasta > cds.sc25.fasta
 ```
 
+### 2.5. Reclassifying repeats 
 
+As each masking tool classifies repeats using different names, the repeats in the final merged masked genome were reclassified into major categories to characterise the repeat content of the genome.
+Each interval in the merged mask was assigned a repeat class based on the overlapping annotations, with the following priority: EDTA > RepeatModeler > Dfam. The script produces the final repeat BED/GFF3 files and summaries by repeat class and repeat group.
+
+First, scaffold 24 was removed from the input files. 
+
+EDTA GFF3
+
+```bash
+awk '$1 != "scaffold_24"' EDTA.TEanno.gff3 > sc25.EDTA.TEanno.gff3
+```
+
+RepeatMasker Dfam output
+
+```bash
+awk '$5 != "scaffold_24"' RepeatMasker_Dfam.out > sc25_RepeatMasker_Dfam.out
+```
+
+RepeatMasker RepeatModeler output
+
+```bash
+awk '$5 != "scaffold_24"' RepeatMasker_RepeatMod.out > sc25_RepeatMasker_RepeatMod.out
+```
+
+Final repeat annotation and summary
+
+```bash
+MERGED_BED=merged_masked_genome.bed
+GENOME_FA=genome.sc25.fasta
+EDTA_GFF=sc25.EDTA.TEanno.gff3
+RM_REPEATMOD=sc25_RepeatMasker_RepeatMod.out
+RM_DFAM=sc25_RepeatMasker_Dfam.out
+OUTPUT_DIR=Output_directory
+
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR"
+
+# -------------------------------------------------------------------
+# 1. Convert EDTA GFF3 to BED
+# -------------------------------------------------------------------
+
+echo "Converting EDTA annotation to BED file..."
+
+# Convert GFF3 1-based coordinates to BED 0-based coordinates
+awk 'BEGIN{OFS="\t"} !/^#/ {name="NA"; class="NA"; split($9,a,";"); for(i in a){if(a[i] ~ /^Name=/){name=a[i]; sub("Name=","",name)} if(a[i] ~ /^classification=/){class=a[i]; sub("classification=","",class)}}
+print $1,$4-1,$5,name,class}' "$EDTA_GFF" > EDTA.bed
+
+# -------------------------------------------------------------------
+# 2. Convert RepeatMasker outputs to BED
+# -------------------------------------------------------------------
+
+echo "Converting RepeatMasker annotations to BED file..."
+
+# Extract sequence, start, end, repeat name and repeat class
+awk 'BEGIN{OFS="\t"} $1 !~ /^SW|^score|^perc|^query|^position/ && NF>10 {print $5,$6-1,$7,$10,$11}' "$RM_REPEATMOD" > RepeatModeler.bed
+awk 'BEGIN{OFS="\t"} $1 !~ /^SW|^score|^perc|^query|^position/ && NF>10 {print $5,$6-1,$7,$10,$11}' "$RM_DFAM" > Dfam.bed
+
+# -------------------------------------------------------------------
+# 3. Add ID to final merged mask
+# -------------------------------------------------------------------
+
+echo "Preparing merged mask..."
+
+# Add an ID to each interval so overlapping annotations can be linked back to the corresponding final masked interval.
+awk 'BEGIN{OFS="\t"} {print $0,"mask_"NR}' "$MERGED_BED" > merged_mask_ID.bed
+
+# -------------------------------------------------------------------
+# 4. Find overlaps
+# -------------------------------------------------------------------
+
+echo "Finding overlaps..."
+
+bedtools intersect \
+    -a merged_mask_ID.bed \
+    -b EDTA.bed \
+    -wa -wb \
+    > merged_EDTA.tsv
+
+bedtools intersect \
+    -a merged_mask_ID.bed \
+    -b RepeatModeler.bed \
+    -wa -wb \
+    > merged_RepeatModeler.tsv
+
+bedtools intersect \
+    -a merged_mask_ID.bed \
+    -b Dfam.bed \
+    -wa -wb \
+    > merged_Dfam.tsv
+	
+# -------------------------------------------------------------------
+# 5. Assign repeat classification with priority
+# -------------------------------------------------------------------
+
+echo "Assigning repeat classifications..."
+
+# Classification priority: EDTA > RepeatModeler > Dfam.
+# If an interval overlaps annotations from multiple sources, the first available classification in this order is assigned.
+
+awk 'BEGIN{OFS="\t"}
+FILENAME=="merged_EDTA.tsv" {id=$5; class[id]=$10; next}
+FILENAME=="merged_RepeatModeler.tsv" {id=$5; if(!(id in class)) class[id]=$10; next}
+FILENAME=="merged_Dfam.tsv" {id=$5; if(!(id in class)) class[id]=$10; next}
+FILENAME=="merged_mask_ID.bed" {id=$5; if(id in class) print $1,$2,$3,class[id]; else print $1,$2,$3,"Unclassified"}
+' merged_EDTA.tsv merged_RepeatModeler.tsv merged_Dfam.tsv merged_mask_ID.bed | sort -k1,1 -k2,2n > final_mask_annotated.bed
+
+# -------------------------------------------------------------------
+# 6. Create GFF3
+# -------------------------------------------------------------------
+
+echo "Creating GFF3..."
+
+awk 'BEGIN{OFS="\t"; print "##gff-version 3"} \
+{len=$3-$2; print $1,"FinalMask","repeat_region",$2+1,$3,".",".",".","ID=repeat_"NR";classification="$4";length="len}' \
+final_mask_annotated.bed > final_mask_annotated.gff3
+
+# -------------------------------------------------------------------
+# 7. Calculate genome size
+# -------------------------------------------------------------------
+
+echo "Calculating genome size..."
+
+GENOME_SIZE=$(awk '/^>/{if(length(seq)>0) total+=length(seq); seq=""; next}
+{seq=seq $0} END{total+=length(seq); print total}' "$GENOME_FA")
+
+echo "Genome size: $GENOME_SIZE bp"
+
+# -------------------------------------------------------------------
+# 8. Calculate repeat class summaries
+# -------------------------------------------------------------------
+
+echo "Creating detailed repeat summaries..."
+
+# Calculate BP per class from the final annotated BED
+awk 'BEGIN{OFS="\t"} {bp[$4]+=$3-$2} END{print "Repeat_class\tMasked_bp"; for(i in bp) print i,bp[i]}' final_mask_annotated.bed \
+| sort -k2,2nr > final_repeat_class_summary_bp.txt
+
+# Calculate percentage of genome for each class
+awk -v genome="$GENOME_SIZE" 'BEGIN{OFS="\t"} NR==1{print $0,"Percent_of_genome"; next}
+{printf "%s\t%.0f\t%.4f\n",$1,$2,($2/genome)*100}' final_repeat_class_summary_bp.txt \
+> final_repeat_class_summary_genome_percent.txt
+
+# -------------------------------------------------------------------
+# 9. Calculate total masked statistics
+# -------------------------------------------------------------------
+
+echo "Calculating total masked statistics..."
+
+# Calculate total masked BP from the annotated BED
+TOTAL_MASKED_BP=$(awk '{sum+=$3-$2} END{print sum}' final_mask_annotated.bed)
+TOTAL_MASKED_PERCENT=$(awk -v masked="$TOTAL_MASKED_BP" -v genome="$GENOME_SIZE" 'BEGIN{
+printf "%.4f", (masked/genome)*100}')
+
+# Verify sum of classes
+SUM_OF_CLASSES=$(awk '{sum+=$2} END{print sum}' final_repeat_class_summary_bp.txt)
+
+echo "Total masked BP from annotated BED: $TOTAL_MASKED_BP"
+echo "Sum of individual class BPs: $SUM_OF_CLASSES"
+
+if [ "$TOTAL_MASKED_BP" != "$SUM_OF_CLASSES" ]; then
+    DIFF=$((TOTAL_MASKED_BP - SUM_OF_CLASSES))
+    echo "WARNING: Difference of $DIFF bp between total and sum of classes!"
+fi
+
+# Write total repeat content
+echo -e "Total_masked_bp\t$TOTAL_MASKED_BP" > total_repeat_content.txt
+echo -e "Percent_of_genome\t$TOTAL_MASKED_PERCENT" >> total_repeat_content.txt
+echo -e "Genome_size_bp\t$GENOME_SIZE" >> total_repeat_content.txt
+echo -e "Sum_of_class_bp\t$SUM_OF_CLASSES" >> total_repeat_content.txt
+echo -e "Class_sum_percent\t$(awk -v sum="$SUM_OF_CLASSES" -v genome="$GENOME_SIZE" 'BEGIN{printf "%.4f", (sum/genome)*100}')" >> total_repeat_content.txt
+
+echo "Genome_size_bp	$GENOME_SIZE" > genome_size.txt
+
+# -------------------------------------------------------------------
+# 10. Collapsed repeat landscape
+# -------------------------------------------------------------------
+
+echo "Creating collapsed repeat summary..."
+
+# Extract all unique classes for mapping
+tail -n +2 final_repeat_class_summary_bp.txt | cut -f1 | sort -u > all_classes.txt
+
+# Create a mapping of class -> group
+awk 'BEGIN{OFS="\t"; print "Class\tGroup"}
+{
+    class = $1
+    
+    # Pattern matching
+    if (class ~ /LTR/ || class ~ /^LTR/) {
+        group = "LTR_retrotransposons"
+    } else if (class ~ /LINE/ || class ~ /^LINE/) {
+        group = "LINE_retrotransposons"
+    } else if (class ~ /SINE/ || class ~ /^SINE/) {
+        group = "SINE_retrotransposons"
+    } else if (class ~ /PLE/ || class == "Retroposon") {
+        group = "PLE_retrotransposons"
+    } else if (class ~ /Helitron/ || class ~ /^RC\// || class ~ /^DNA\/Helitron/) {
+        group = "Helitrons"
+    } else if (class ~ /DNA/ || class ~ /MITE/) {
+        group = "DNA_transposons"
+    } else if (class == "Simple_repeat" || class ~ /Simple_repeat/) {
+        group = "Simple_repeats"
+    } else if (class == "Low_complexity" || class ~ /Low_complexity/) {
+        group = "Low_complexity"
+    } else if (class ~ /Satellite/) {
+        group = "Satellite"
+    } else if (class == "rRNA" || class == "tRNA" || class == "snRNA" || class == "srpRNA" || class ~ /RNA/) {
+        group = "RNA_genes"
+    } else if (class == "Unknown" || class == "unknown" || class == "Unclassified") {
+        group = "Unclassified"
+    } else if (class == "ARTEFACT") {
+        group = "Artifact"
+    } else {
+        group = "Other"
+    }
+    
+    print class, group
+}
+' all_classes.txt > class_mapping_debug.txt
+
+# Now create the collapsed summary using the mapping
+awk -v genome="$GENOME_SIZE" '
+BEGIN{OFS="\t"; while ((getline < "class_mapping_debug.txt") > 0) {if ($1 != "Class") class_to_group[$1]=$2}
+close("class_mapping_debug.txt")}
+{
+    class = $1
+    bp = $2
+    
+    # Skip header
+    if (class == "Repeat_class") next
+    }
+    
+    # Get the group for this class
+    if (class in class_to_group) {
+        group = class_to_group[class]
+    } else {
+        # Fallback: try to determine group on the fly
+        if (class ~ /DNA/ || class ~ /MITE/) {
+            group = "DNA_transposons"
+        } else if (class ~ /LTR/) {
+            group = "LTR_retrotransposons"
+        } else if (class ~ /LINE/) {
+            group = "LINE_retrotransposons"
+        } else if (class ~ /SINE/) {
+            group = "SINE_retrotransposons"
+        } else if (class ~ /Unknown/ || class ~ /unknown/) {
+            group = "Unclassified"
+        } else {
+            group = "Other"
+        }
+    }
+    
+    # Sum BP by group
+    group_bp[group] += bp
+}
+END {
+    print "Repeat_group\tMasked_bp\tPercent_of_genome"
+    total = 0
+    for (g in group_bp) {
+        total += group_bp[g]
+        printf "%s\t%.0f\t%.4f\n", g, group_bp[g], (group_bp[g]/genome)*100
+    }
+    printf "Total_masked\t%.0f\t%.4f\n", total, (total/genome)*100
+}
+' final_repeat_class_summary_bp.txt | sort -k2,2nr > collapsed_repeat_summary.txt
+
+# -------------------------------------------------------------------
+# 11. Final statistics and verification
+# -------------------------------------------------------------------
+
+echo ""
+echo "-------------------------------------"
+echo "FINAL VERIFICATION"
+echo "-------------------------------------"
+
+# Extract values
+TOTAL_FROM_TOTAL=$(grep "Total_masked_bp" total_repeat_content.txt | cut -f2)
+TOTAL_FROM_COLLAPSED=$(grep "^Total_masked" collapsed_repeat_summary.txt | cut -f2)
+
+echo "Total masked BP comparison:"
+echo "  From total_repeat_content.txt: $TOTAL_FROM_TOTAL"
+echo "  From collapsed_repeat_summary.txt: $TOTAL_FROM_COLLAPSED"
+echo "  From final_mask_annotated.bed: $TOTAL_MASKED_BP"
+
+if [ "$TOTAL_FROM_TOTAL" == "$TOTAL_FROM_COLLAPSED" ]; then
+    echo "✓ All totals match!"
+else
+    DIFF=$((TOTAL_FROM_TOTAL - TOTAL_FROM_COLLAPSED))
+    echo "✗ WARNING: Totals do not match! Difference: $DIFF bp"
+    echo ""
+    echo "Check class_mapping_debug.txt to see how each class was categorized"
+    echo ""
+    echo "Classes in 'Other' category (these need to be categorized):"
+    if [ -f class_mapping_debug.txt ]; then
+        grep -E "Other$" class_mapping_debug.txt || echo "  None found"
+    fi
+    echo ""
+    echo "Classes in 'Artifact' category (PCR artifacts):"
+    if [ -f class_mapping_debug.txt ]; then
+        grep -E "Artifact$" class_mapping_debug.txt || echo "  None found"
+    fi
+fi
+
+echo ""
+echo "-------------------------------------"
+echo "Repeat Content Summary"
+echo "-------------------------------------"
+echo "Genome size: $(printf "%'d" $GENOME_SIZE) bp"
+echo "Total masked: $(printf "%'d" $TOTAL_MASKED_BP) bp ($TOTAL_MASKED_PERCENT%)"
+echo "Number of repeat regions: $(wc -l < final_mask_annotated.bed)"
+echo ""
+
+# Show collapsed summary
+echo "Collapsed repeat summary:"
+cat collapsed_repeat_summary.txt
+
+echo ""
+echo "-------------------------------------"
+echo "Output files:"
+echo "-------------------------------------"
+ls -lh *.txt *.bed *.gff3 2>/dev/null | awk '{print "  " $9}'
+echo ""
+
+echo "For more details, check:"
+echo "  - all_classes.txt: All unique repeat classes"
+echo "  - class_mapping_debug.txt: How each class was categorized"
+echo "  - final_repeat_class_summary_bp.txt: Detailed class breakdown"
+echo "  - final_repeat_class_summary_genome_percent.txt: Class percentages"
+```
 
 
 Each interval of the merged mask was given a repeat class from the overlapping annotations (priority EDTA > RepeatModeler > Dfam). The script writes the final repeat BED/GFF3 and summaries per class and per repeat group.
