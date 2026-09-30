@@ -46,9 +46,10 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
   - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
   - [2.6. Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
+  - [2.7. Functional annotation](#27-functional-annotation)
 
   
-- [8. Functional annotation](#8-functional-annotation)
+
 - [9. Phylogenomics](#9-phylogenomics)
   - [9.1 Proteome headers and species mapping](#91-proteome-headers-and-species-mapping)
   - [9.2 OrthoFinder](#92-orthofinder)
@@ -1888,42 +1889,64 @@ quartet CentroMiner \
 echo "CentroMiner complete."
 ```
 
+### 2.7. Functional annotation
 
-
-
-
-## 8. Functional annotation
+InterProScan
 
 ```bash
-PROTEINS=TSEBRA_Pristina_proteins.fasta
-PREFIX=Pristina
+QUERY=proteins.sc25.fasta
+OUTPUT_DIR=Output_directory
+PREFIX="Pristina"
 
-emapper.py \
-    -i "$PROTEINS" \
-    --itype proteins \
-    -m diamond \
-    --cpu 32 \
-    --data_dir eggnog_data \
-    --dmnd_db eggnog_proteins.dmnd \
-    --pfam_realign realign \
-    --go_evidence all \
-    --target_orthologs all \
-    --dbmem \
-    --report_orthologs \
-    --decorate_gff yes \
-    --output_dir eggnog \
-    --output "${PREFIX}_eggnog_diamond"
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
 
+echo "Starting Interproscan at $(date)"
 interproscan.sh \
-    --input "$PROTEINS" \
-    --seqtype p \
-    --goterms \
-    --pathways \
-    --iprlookup \
-    --formats tsv \
-    --outfile "${PREFIX}_interpro.tsv" \
-    --cpu 32
+--input "$QUERY" \
+--seqtype p \
+--goterms \
+--pathways \
+--iprlookup \
+--formats tsv \
+--outfile "$OUTPUT_DIR/${PREFIX}_interpro.tsv" 
+--cpu 32
 ```
+
+eggNOG-mapper
+
+```bash
+QUERY=proteins.sc25.fasta
+EGGNOG_DB=eggnog_db
+EGGNOG_DIAMOND_DB=eggnog_proteins.dmnd
+OUTPUT_DIR=Output_directory
+PREFIX="Pristina"
+
+mkdir -p "$OUTPUT_DIR"
+cd "$OUTPUT_DIR" || exit
+
+echo "Starting functional annotation using eggNOG and Diamond at $(date)"
+emapper.py \
+  -i "$QUERY" \
+  --itype proteins \
+  -m diamond \
+  --cpu 32 \
+  --data_dir "$EGGNOG_DB" \
+  --dmnd_db "$EGGNOG_DIAMOND_DB" \
+  --pfam_realign realign \
+  --go_evidence all \
+  --target_orthologs all \
+  --dbmem \
+  --report_orthologs \
+  --decorate_gff yes \
+  --output_dir "$OUTPUT_DIR" \
+  --output "$PREFIX"_eggnog_diamond \
+  --override
+  ```
+
+
+
+
 
 ## 9. Phylogenomics
 
