@@ -54,7 +54,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
      - [3.1.3 Phylogenetic tree](#313-phylogenetic-tree)
   - [3.2 Gene Family Evolution](#32-gene-familyevolution)
 	- [3.2.1 Ultrametric tree](#321-ultrametric-tree)
-    - [3.2.2 CAFE5 Analysis](#322-cafe2-analysis)
+    - [3.2.2 CAFE5 Analysis](#322-cafe5-analysis)
     - [3.2.3 Gene Family Expansions and Contractions](#323-gene-family-expansions-and-contractions)
     - [3.2.4 Annotation of Significant Familiess](#324-annotation-of-significant-familiess)
 
