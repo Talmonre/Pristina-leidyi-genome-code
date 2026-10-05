@@ -52,16 +52,11 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
      - [3.1.1 Orthofinder](#311-orthofinder)
      - [3.1.2 IQTREE and ASTRAL](#312-iqtree-and-astral)
      - [3.1.3 Phylogenetic tree](#313-phylogenetic-tree)
-
-
-- [10. Gene family evolution](#10-gene-family-evolution)
-  - [10.1 Ultrametric tree](#101-ultrametric-tree)
-  - [10.2 CAFE5 input](#102-cafe5-input)
-  - [10.3 CAFE5](#103-cafe5)
-  - [10.4 CafePlotter](#104-cafeplotter)
-  - [10.5 Significant expansions and contractions](#105-significant-expansions-and-contractions)
-  - [10.6 Annotation of significant families](#106-annotation-of-significant-families)
-- [License](#license)
+  - [3.2 Gene Family Evolution](#32-gene-familyevolution)
+	- [3.2.1 Ultrametric tree](#321-ultrametric-tree)
+    - [3.2.2 CAFE5 Analysis](#322-cafe2-analysis)
+    - [3.2.3 Gene Family Expansions and Contractions](#323-gene-family-expansions-and-contractions)
+    - [3.2.4 Annotation of Significant Familiess](#324-annotation-of-significant-familiess)
 
 ## Software
 
@@ -2157,177 +2152,464 @@ ggtree(tree) +
   scale_y_reverse()
 ```
 
+### 3.2. Gene Family Evolution
 
+#### 3.2.1 Ultrametric tree
 
+The phylogenetic tree was converted into an ultrametric tree. Divergence time estimates were obtained from the TimeTree database 
 
-## 10. Gene family evolution
-
-### 10.1 Ultrametric tree
-
-```r
+```r 
 library(ape)
 library(phytools)
 
-my_tree <- read.tree("Pristina_rooted.tre")
+my_tree <- read.tree("rooted.tre")
 
-# calibrations (TimeTree): P. maximus-L. terrestris and L. terrestris-H. manillensis
-root_node       <- getMRCA(my_tree, tip = c("Pecten_maximus", "Lumbricus_terrestris"))
+# ------------------------------------------------------------------
+# FIND THE NODE NUMBERS FOR CALIBRATIONS
+# ------------------------------------------------------------------
+
+# Get the node numbers for the Most Recent Common Ancestor (MRCA) of the calibration species pairs
+
+# Calibration 1: Root node (Mollusca vs Annelida)
+# The common ancestor of Pecten maximus and Lumbricus terrestris
+root_node <- getMRCA(my_tree, tip = c("Pecten_maximus", "Lumbricus_terrestris"))
+print(paste("Root node number:", root_node))
+
+# Calibration 2: Clitellata node (Earthworm vs Leech)
+# The common ancestor of Lumbricus terrestris and Hirudinaria manillensis
 clitellata_node <- getMRCA(my_tree, tip = c("Lumbricus_terrestris", "Hirudinaria_manillensis"))
+print(paste("Clitellata node number:", clitellata_node))
+
+# ------------------------------------------------------------------
+# CREATE THE CALIBRATION DATA FRAME
+# ------------------------------------------------------------------
+
+# Create vectors for nodes and ages
+node <- c(root_node, clitellata_node)
+
+# From TimeTree:
+# Calibration 1 (Root): Pecten maximus vs Lumbricus terrestris
+#   CI: 447.8 - 650.0 MYA
+# Calibration 2 (Clitellata): Lumbricus terrestris vs Hirudinaria manillensis
+#   Range: 295.9 - 345.0 MYA
+age.min <- c(447.8, 295.9)
+age.max <- c(650.0, 345.0)
+
+soft.bounds <- c(FALSE, FALSE)
 
 calibration_df <- data.frame(
-  node        = c(root_node, clitellata_node),
-  age.min     = c(447.8, 295.9),
-  age.max     = c(650.0, 345.0),
-  soft.bounds = c(FALSE, FALSE)
+    node = node,
+    age.min = age.min,
+    age.max = age.max,
+    soft.bounds = soft.bounds
 )
 
-dated_tree <- chronos(my_tree,
-                      calibration = calibration_df,
-                      model       = "correlated",
-                      quiet       = FALSE,
-                      control     = chronos.control())
+print("Calibration data frame:")
+print(calibration_df)
 
-if (!is.ultrametric(dated_tree)) dated_tree <- force.ultrametric(dated_tree, method = "nnls")
-if (!is.binary.tree(dated_tree)) dated_tree <- multi2di(dated_tree, random = FALSE)
+# ------------------------------------------------------------------
+# VISUALIZE THE CALIBRATIONS ON YOUR TREE 
+# ------------------------------------------------------------------
 
-write.tree(dated_tree, file = "Pristina_ultrametric_tree_cafe5.tre")
-write.nexus(dated_tree, file = "Pristina_ultrametric_tree_cafe5.nex")
+plot(my_tree, show.tip.label = TRUE, cex = 0.8)
 
-node_ages <- branching.times(dated_tree)
-write.csv(data.frame(node = names(node_ages), age = node_ages),
-          file = "divergence_times.csv", row.names = FALSE)
+# Add calibration nodes
+nodelabels(node = root_node, pch = 19, col = "red", cex = 1.5)
+nodelabels(node = clitellata_node, pch = 19, col = "blue", cex = 1.5)
+
+# ------------------------------------------------------------------
+# RUN THE DATING ANALYSIS WITH chronos
+# ------------------------------------------------------------------
+
+dated_tree <- chronos(
+    my_tree,
+    calibration = calibration_df,
+    model = "correlated",          # Recommended for most datasets
+    quiet = FALSE,                 
+    control = chronos.control()    # Default settings
+)
+
+# ------------------------------------------------------------------
+# CHECK THE RESULTS
+# ------------------------------------------------------------------
+
+# Check if the tree is now ultrametric
+is_ultrametric <- is.ultrametric(dated_tree)
+print(paste("Is the tree ultrametric?", is_ultrametric))
+
+# View the new branch lengths
+print(dated_tree$edge.length)
+
+# Check root-to-tip distances (should all be equal)
+dist_root_to_tip <- diag(vcv(dated_tree))
+print("Root-to-tip distances (should all be roughly equal):")
+print(dist_root_to_tip)
+
+# ------------------------------------------------------------------
+# SAVE ULTRAMETRIC TREE
+# ------------------------------------------------------------------
+
+# Save as Newick file for CAFE5
+write.tree(dated_tree, file = "ultrametric.tre")
 ```
 
-### 10.2 CAFE5 input
+#### 3.2.2 CAFE5 Analysis
 
-`Orthogroups.GeneCount.tsv` from OrthoFinder was reformatted for CAFE5 (Desc column added, Total column removed). Families with ≥ 100 copies in any species were excluded.
+Prepare data for input into CAFE5. The script removes the Total column from the OrthoFinder Orthogroups.GeneCount.tsv file, filters out families with more than 100 copies in any species, adds the required Desc column, and generates summary logs.
 
 ```bash
-awk 'BEGIN { OFS = "\t" }
-     NR == 1 {
-         header = $1
-         for (i = 2; i < NF; i++) header = header OFS $i
-         print "Desc", header > "Orthogroups_filtered.tsv"
-         print "Desc", header > "Orthogroups_removed.tsv"
-         next
-     }
-     {
-         total++
-         data = $1; large = 0
-         for (i = 2; i < NF; i++) { data = data OFS $i; if ($i >= 100) large = 1 }
-         if (large) { removed++; print "A" total, data > "Orthogroups_removed.tsv" }
-         else       { kept++;    print "A" kept,  data > "Orthogroups_filtered.tsv" }
-     }
-     END { printf "Families kept: %d\nFamilies removed: %d\nTotal families: %d\n", kept, removed, total > "filtering_summary.txt" }' \
-    Orthogroups.GeneCount.tsv
+awk 'BEGIN {OFS = "\t"; kept = 0; removed = 0; total = 0}
+
+NR == 1 {
+    # Remove the Total column from header (last column)
+    header = ""
+    for (i = 1; i < NF; i++) {
+        if (i > 1) header = header OFS
+        header = header $i
+    }
+    # Print header with Desc column
+    print "Desc" OFS header > "Orthogroups_filtered.tsv"
+    print "Desc" OFS header > "Orthogroups_removed.tsv"
+    next
+}
+{
+    total++
+    
+    # Remove the Total column from data (last column)
+    data = ""
+    large = 0
+    for (i = 1; i < NF; i++) {
+        if (i > 1) {
+            data = data OFS
+            # Check if this value is >=100 (skip first column = family ID)
+            if ($i >= 100) {
+                large = 1
+            }
+        }
+        data = data $i
+    }
+    
+    if (large == 0) {
+        # Keep this family
+        kept++
+        print "A" kept OFS data > "Orthogroups_filtered.tsv"
+    } else {
+        # Remove this family
+        removed++
+        print "A" total OFS data > "Orthogroups_removed.tsv"
+    }
+}
+END {
+    print "Total families:", total
+    print "Families kept:", kept
+    print "Families removed:", removed
+}
+' Orthogroups.GeneCount.tsv
 ```
 
-### 10.3 CAFE5
-
-An error model was estimated first, then used in the base-model run.
+CAFE5
 
 ```bash
-INPUT=Orthogroups_filtered.tsv
-TREE=Pristina_ultrametric_tree_cafe5.tre
+WORKDIR=Working_directory
+ORTH_TSV=Orthogroups_filtered.tsv
+TREE=ultrametric.tre
+ERROR_MODEL="$WORKDIR/Base_error_model.txt"
+FIGURE_DIR="$WORKDIR/cafe5_plots"
 
-cafe5 -i "$INPUT" -t "$TREE" -p -e -o error_estimation
+mkdir -p "$WORKDIR"/{results,logs}
 
-cafe5 -i "$INPUT" -t "$TREE" -p \
-      -eerror_estimation/Base_error_model.txt \
+# Estimate the CAFE5 error model
+
+cafe5 -i "$ORTH_TSV" \
+      -t "$TREE" \
+      -o "$WORKDIR" \
+      -p \
+      -e \
+      > "$WORKDIR/logs/error_estimation.log" 2>&1
+
+echo "Error model created"
+
+# Run CAFE5 with k=1 using the estimated error model
+
+cafe5 -i "$ORTH_TSV" \
+      -t "$TREE" \
+      -o "$WORKDIR/results" \
+      -p \
+      -e"$ERROR_MODEL" \
       -k 1 \
-      -o results/k1
-```
+      > "$WORKDIR/logs/k1.log" 2>&1
+	  
+# Run CAFEPLOTTER to visualise the CAFE5 Results
 
-### 10.4 CafePlotter
-
-```bash
-cafeplotter -i results/k1 \
-            -o cafe5_plots_k1 \
+cafeplotter -i "$WORKDIR/results" \
+            -o "$FIGURE_DIR" \
             --format png \
             --fig_width 12 \
             --fig_height 0.7 \
-            --dpi 600 \
             --leaf_label_size 10 \
             --count_label_size 7 \
+            --dpi 600 \
             --expansion_color red \
             --contraction_color blue \
             --ignore_branch_length
 ```
 
-### 10.5 Significant expansions and contractions
+#### 3.2.3 Gene Family Expansions and Contractions
 
-Families with a significant change (p < 0.05) were split into expansions (positive change on the *P. leidyi* branch) and contractions (negative change). Sequences were then extracted for each set, both for all significant families and for those changed only in *P. leidyi*. Set `DIRECTION=contraction` for contractions.
+Extract significant gene family sequences. Work in the same working directory used for the CAFE5 analysis. Orthogroup sequences are located in the OrthoFinder output described in Section 3.1.1.
+
+Significant expansions: Extracts significantly expanded gene families (p < 0.05) for the target species, as well as families expanded specifically in the target species.
+
+The same script can be used to extract significant contractions by making the following changes:
+
+In Step 2 – Change the target-species filter from `$col > 0` to `$col < 0`.
+In Step 3 – Change the target-species filter from $col > 0 to $col < 0, and change the filter for other species from $i > 0 to $i < 0.
+Change significant_expansions to significant_contractions in the output directory name.
+Update the corresponding expansions/contractions wording in the script messages and summary.
+
+All other steps, including significance filtering and sequence extraction, remain unchanged.
 
 ```bash
-SPECIES=Pristina_leidyi
-DIRECTION=expansion             # expansion | contraction
-CHANGE_FILE=results/k1/Base_change.tab
-REPORT_FILE=results/k1/Base_report.cafe
-OG_DIR=orthofinder_out/Results/Orthogroup_Sequences
-PVAL=0.05
-OUT="${SPECIES}_significant_${DIRECTION}s"
+SPECIES="Pristina_leidyi"
 
-mkdir -p "$OUT"/{all_significant,specific}
-[ "$DIRECTION" = expansion ] && SIGN=1 || SIGN=-1
+WORKDIR=Working_directory
+CHANGE_FILE="$WORKDIR/results/Base_change.tab"
+REPORT_FILE="$WORKDIR/results/Base_report.cafe"
+ORTHOGROUP_DIR=Orthogroup_Sequences
 
-# column of the species in the change table
-col=$(head -1 "$CHANGE_FILE" | awk -v sp="$SPECIES" '{for (i = 1; i <= NF; i++) if (index($i, sp) == 1) {print i; exit}}')
+PVAL_THRESHOLD="0.05"
+OUTPUT_DIR="$WORKDIR/${SPECIES}_significant_expansions"
+LOG_FILE="$OUTPUT_DIR/significant_extraction.log"
 
-# families with p < PVAL
-grep "^OG" "$REPORT_FILE" \
-    | awk -v p="$PVAL" '{for (i = 2; i <= NF; i++) if ($i ~ /^[0-9.]+$/ && $i < p && $i >= 0) {print $1; break}}' \
-    > "$OUT/all_significant_ids.txt"
+mkdir -p "$OUTPUT_DIR"/{all_significant,specific}
 
-# significant families changed in the given direction in the species
-awk -v col="$col" -v s="$SIGN" 'NR == FNR {sig[$1]; next} ($1 in sig) && $col * s > 0 {print $1}' \
-    "$OUT/all_significant_ids.txt" "$CHANGE_FILE" > "$OUT/all_significant/families.txt"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-# ... and changed in that direction only in the species
-awk -v col="$col" -v s="$SIGN" '
-    NR == FNR {sig[$1]; next}
-    ($1 in sig) && $col * s > 0 {
-        for (i = 2; i <= NF; i++) if (i != col && $i * s > 0) next
+# ------------------------------------------------------------------
+# STEP 1: FIND SPECIES COLUMN
+# ------------------------------------------------------------------
+echo "Step 1: Finding column for $SPECIES..."
+
+COLUMN_NUM=$(head -1 "$CHANGE_FILE" | awk -v species="$SPECIES" '
+{
+    for(i=1; i<=NF; i++) {
+        if(index($i, species) == 1) {
+            print i
+            exit
+        }
+    }
+}')
+
+echo "  Found $SPECIES in column $COLUMN_NUM"
+echo ""
+
+# ------------------------------------------------------------------
+# STEP 2: EXTRACT SIGNIFICANT EXPANSIONS IN TARGET SPECIES
+# ------------------------------------------------------------------
+echo "Step 2: Extracting significant expansions in $SPECIES (p < $PVAL_THRESHOLD)..."
+
+# First, get all significant families from report
+grep "^OG" "$REPORT_FILE" | awk -v pval="$PVAL_THRESHOLD" '
+{
+    for(i=2; i<=NF; i++) {
+        if($i ~ /^[0-9.]+$/ && $i < pval && $i >= 0) {
+            print $1
+            break
+        }
+    }
+}' > "$OUTPUT_DIR/all_significant_ids.txt"
+
+TOTAL_SIG=$(wc -l < "$OUTPUT_DIR/all_significant_ids.txt")
+echo "  Found $TOTAL_SIG total significant families"
+
+# Filter for expansions in target species (column > 0)
+# For contractions, change "$col > 0" below to "$col < 0"
+
+awk -v col="$COLUMN_NUM" '
+    NR==FNR {sig[$1]=1; next} 
+    $1 in sig && $col > 0 {
         print $1
-    }' "$OUT/all_significant/families.txt" "$CHANGE_FILE" > "$OUT/specific/families.txt"
+    }
+' "$OUTPUT_DIR/all_significant_ids.txt" "$CHANGE_FILE" > "$OUTPUT_DIR/all_significant_families.txt"
 
-# species sequences of each family
+SIG_COUNT=$(wc -l < "$OUTPUT_DIR/all_significant_families.txt")
+echo "  Found $SIG_COUNT significantly EXPANDED families in $SPECIES"
+
+# Copy to all_significant directory
+cp "$OUTPUT_DIR/all_significant_families.txt" "$OUTPUT_DIR/all_significant/families.txt"
+
+if [ "$SIG_COUNT" -eq 0 ]; then
+    echo "  ERROR: No significant expansions found in $SPECIES."
+    exit 1
+fi
+
+# ------------------------------------------------------------------
+# STEP 3: FIND SPECIES-SPECIFIC EXPANSIONS
+# ------------------------------------------------------------------
+echo ""
+echo "Step 3: Finding $SPECIES-specific significant expansions..."
+
+# For contractions:
+#   change "$col > 0" to "$col < 0"
+#   change "$i > 0" to "$i < 0"
+
+awk -v col="$COLUMN_NUM" '
+    NR==FNR {sig[$1]=1; next} 
+    $1 in sig && $col > 0 {
+        for(i=2; i<=NF; i++) {
+            if(i != col && $i > 0) { next }
+        }
+        print $1
+    }
+' "$OUTPUT_DIR/all_significant_families.txt" "$CHANGE_FILE" > "$OUTPUT_DIR/specific_families.txt"
+
+SPECIFIC_COUNT=$(wc -l < "$OUTPUT_DIR/specific_families.txt")
+echo "  Found $SPECIFIC_COUNT $SPECIES-specific significant expansions"
+
+# Copy to specific directory
+cp "$OUTPUT_DIR/specific_families.txt" "$OUTPUT_DIR/specific/families.txt"
+
+# ------------------------------------------------------------------
+# STEP 4: EXTRACT SEQUENCES
+# ------------------------------------------------------------------
+echo ""
+echo "Step 4: Extracting sequences..."
+
 extract_seqs() {
-    [ -s "$1" ] || return
-    > "$2"
-    while read -r og; do
-        [ -f "$OG_DIR/${og}.fa" ] || continue
-        awk -v og="$og" -v sp="$SPECIES" '
-            $0 ~ "^>" sp {print $0 "|OG:" og; keep = 1; next}
-            /^>/ {keep = 0}
-            keep' "$OG_DIR/${og}.fa" >> "$2"
-    done < "$1"
+    local list="$1" out="$2"
+    [ ! -s "$list" ] && { echo "0"; return; }
+    
+    > "$out"
+    while read family; do
+        [ -f "$ORTHOGROUP_DIR/${family}.fa" ] || continue
+        awk -v og="$family" -v species="$SPECIES" '
+            $0 ~ "^>" species {print $0 "|OG:" og; flag=1; next}
+            /^>/ && flag {flag=0}
+            flag {print}
+        ' "$ORTHOGROUP_DIR/${family}.fa" >> "$out"
+    done < "$list"
+    
+    echo "$(grep -c "^>" "$out" 2>/dev/null || echo 0)"
 }
-extract_seqs "$OUT/all_significant/families.txt" "$OUT/all_significant/sequences.fa"
-extract_seqs "$OUT/specific/families.txt"        "$OUT/specific/sequences.fa"
+
+# Extract all significant expansions
+ALL_SEQ=$(extract_seqs "$OUTPUT_DIR/all_significant_families.txt" "$OUTPUT_DIR/all_significant/sequences.fa")
+
+# Extract species-specific expansions
+SPEC_SEQ=$(extract_seqs "$OUTPUT_DIR/specific_families.txt" "$OUTPUT_DIR/specific/sequences.fa")
+
+# ------------------------------------------------------------------
+# SUMMARY
+# ------------------------------------------------------------------
+echo ""
+echo "=========================================="
+echo "SUMMARY"
+echo "=========================================="
+echo "All significant expansions:   $SIG_COUNT (sequences: $ALL_SEQ)"
+echo "$SPECIES-specific expansions: $SPECIFIC_COUNT (sequences: $SPEC_SEQ)"
+echo ""
+echo "Output: $OUTPUT_DIR"
+echo "Log:    $LOG_FILE"
+echo "=========================================="
 ```
 
-### 10.6 Annotation of significant families
+#### 3.2.4 Annotation of Significant Families
+
+The sequences.fa files generated in Section 3.2.2 are located in the significant expansion/contraction output directories, within either the all_significant or specific directory.
+
+The script was run separately for each sequences.fa file requiring annotation.
+
+Functional annotation outputs generated in Section 2.7 were used as input to extract annotations for the significant gene families.
 
 ```bash
-SEQUENCES=sequences.fa
-EGGNOG=Pristina_eggnog_diamond.emapper.annotations
-INTERPRO=Pristina_interpro.tsv
-OUT=annotation
+SEQUENCE_FILE=sequences.fa
+EGGNOG_FILE=eggnog.tsv
+INTERPRO_FILE=interproscan.tsv
+OUTPUT_DIR=Output_directory
+LOG_FILE="$OUTPUT_DIR/CAFE5_annotation.log"
 
-mkdir -p "$OUT"
+mkdir -p "$OUTPUT_DIR"
 
-grep "^>" "$SEQUENCES" | sed 's/^>//' | cut -d'|' -f1 | sed 's/^.*_anno/anno/' > "$OUT/gene_ids.txt"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-grep -F -f "$OUT/gene_ids.txt" "$EGGNOG"   | grep -v "^#" > "$OUT/eggnog_full.tsv"
-grep -F -f "$OUT/gene_ids.txt" "$INTERPRO"                > "$OUT/interpro_full.tsv"
+# ------------------------------------------------------------------
+# STEP 1: EXTRACT GENE IDS FROM FASTA HEADERS
+# ------------------------------------------------------------------
+echo "Extracting gene IDs from FASTA headers..."
 
-# unique GO terms from both annotations
-{
-    cut -f10 "$OUT/eggnog_full.tsv"   | tr ',' '\n'
-    cut -f12 "$OUT/interpro_full.tsv" | tr '|' '\n'
-} | grep -E "^GO:[0-9]+" | sort -u > "$OUT/go_terms_unique.txt"
+# Convert FASTA headers to the gene ID format used in the eggNOG and InterPro files
+grep "^>" "$SEQUENCE_FILE" | \
+    sed 's/^>//' | \
+    cut -d'|' -f1 | \
+    sed 's/^.*_anno/anno/' > "$OUTPUT_DIR/gene_ids.txt"
 
-rm "$OUT/gene_ids.txt"
+GENE_COUNT=$(wc -l < "$OUTPUT_DIR/gene_ids.txt")
+echo "Found $GENE_COUNT gene IDs"
+
+# ------------------------------------------------------------------
+# STEP 2: EXTRACT EGGNOG ANNOTATIONS
+# ------------------------------------------------------------------
+echo ""
+echo "Extracting eggNOG annotations..."
+
+grep -F -f "$OUTPUT_DIR/gene_ids.txt" "$EGGNOG_FILE" | grep -v "^#" > "$OUTPUT_DIR/eggnog_full.tsv"
+
+EGGNOG_COUNT=$(wc -l < "$OUTPUT_DIR/eggnog_full.tsv" 2>/dev/null || echo 0)
+echo "  Found $EGGNOG_COUNT eggNOG annotations"
+
+# ------------------------------------------------------------------
+# STEP 3: EXTRACT INTERPRO ANNOTATIONS
+# ------------------------------------------------------------------
+echo ""
+echo "Extracting InterPro annotations..."
+
+grep -F -f "$OUTPUT_DIR/gene_ids.txt" "$INTERPRO_FILE" 2>/dev/null > "$OUTPUT_DIR/interpro_full.tsv"
+
+INTERPRO_COUNT=$(wc -l < "$OUTPUT_DIR/interpro_full.tsv" 2>/dev/null || echo 0)
+echo "  Found $INTERPRO_COUNT InterPro annotation lines"
+
+# ------------------------------------------------------------------
+# STEP 4: EXTRACT UNIQUE GO TERMS
+# ------------------------------------------------------------------
+echo ""
+echo "Extracting unique GO terms..."
+
+# From eggNOG (column 10)
+cut -f10 "$OUTPUT_DIR/eggnog_full.tsv" 2>/dev/null | tr ',' '\n' | grep -E "^GO:[0-9]+" > "$OUTPUT_DIR/go_eggnog.txt"
+
+# From InterPro (column 12)
+cut -f12 "$OUTPUT_DIR/interpro_full.tsv" 2>/dev/null | tr '|' '\n' | grep -E "^GO:[0-9]+" > "$OUTPUT_DIR/go_interpro.txt"
+
+# Combine and deduplicate
+cat "$OUTPUT_DIR/go_eggnog.txt" "$OUTPUT_DIR/go_interpro.txt" 2>/dev/null | sort -u > "$OUTPUT_DIR/go_terms_unique.txt"
+
+GO_COUNT=$(wc -l < "$OUTPUT_DIR/go_terms_unique.txt" 2>/dev/null || echo 0)
+echo "  Unique GO terms: $GO_COUNT"
+
+# ------------------------------------------------------------------
+# STEP 5: CLEAN UP
+# ------------------------------------------------------------------
+rm -f "$OUTPUT_DIR/gene_ids.txt" "$OUTPUT_DIR/go_eggnog.txt" "$OUTPUT_DIR/go_interpro.txt"
+
+# ------------------------------------------------------------------
+# SUMMARY
+# ------------------------------------------------------------------
+echo ""
+echo "=========================================="
+echo "DONE!"
+echo "=========================================="
+echo "Gene IDs:        $GENE_COUNT"
+echo "eggNOG lines:   $EGGNOG_COUNT"
+echo "InterPro lines: $INTERPRO_COUNT"
+echo "Unique GO terms: $GO_COUNT"
+echo ""
+echo "Output files:"
+echo "  1. eggnog_full.tsv    - all eggNOG columns"
+echo "  2. interpro_full.tsv  - all InterPro columns"
+echo "  3. go_terms_unique.txt - unique GO IDs"
+echo ""
+echo "Location: $OUTPUT_DIR"
+echo "=========================================="
 ```
 
 ## License
