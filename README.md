@@ -1804,10 +1804,10 @@ echo "  From collapsed_repeat_summary.txt: $TOTAL_FROM_COLLAPSED"
 echo "  From final_mask_annotated.bed: $TOTAL_MASKED_BP"
 
 if [ "$TOTAL_FROM_TOTAL" == "$TOTAL_FROM_COLLAPSED" ]; then
-    echo "✓ All totals match!"
+    echo "All totals match!"
 else
     DIFF=$((TOTAL_FROM_TOTAL - TOTAL_FROM_COLLAPSED))
-    echo "✗ WARNING: Totals do not match! Difference: $DIFF bp"
+    echo "WARNING: Totals do not match! Difference: $DIFF bp"
     echo ""
     echo "Check class_mapping_debug.txt to see how each class was categorized"
     echo ""
@@ -2363,7 +2363,9 @@ Significant expansions: Extracts significantly expanded gene families (p < 0.05)
 The same script can be used to extract significant contractions by making the following changes:
 
 In Step 2 – Change the target-species filter from `$col > 0` to `$col < 0`.
+
 In Step 3 – Change the target-species filter from $col > 0 to $col < 0, and change the filter for other species from $i > 0 to $i < 0.
+
 Change significant_expansions to significant_contractions in the output directory name.
 Update the corresponding expansions/contractions wording in the script messages and summary.
 
