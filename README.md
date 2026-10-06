@@ -46,7 +46,14 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
   - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
   - [2.6. Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
-  - [2.7. Functional annotation](#27-functional-annotation)
+  - [2.7. Repeat classes visualization](#27-repeat-classes-visualization)
+	- [2.7.1. Karyotype file](#271-karyotype-file)
+  	- [2.7.2. Collapse repeat classifications](#272-collapse-repeat-classifications)
+    - [2.7.3. Repeat coordinate file](#273-repeat-coordinate-file)
+    - [2.7.4. Aggregate repeat annotations into windows](#274-aggregate-repeat-annotations-into-windows)
+    - [2.7.5. Repeat density points](#275-repeat-density-points)
+    - [2.7.6. Plot repeat distribution and density](#276-plot-repeat-distribution-and-density)
+  - [2.8. Functional annotation](#27-functional-annotation)
 - [3. Gene family evolution in phylogenetic context](#3-gene-family-evolution-in-phylogenetic-context)
   - [3.1 Phylogenomic analysis](#31-phylogenomic-analysis)
      - [3.1.1 Orthofinder](#311-orthofinder)
@@ -1884,7 +1891,502 @@ quartet CentroMiner \
 echo "CentroMiner complete."
 ```
 
-### 2.7. Functional annotation
+### 2.7 Repeat classes visualization
+
+#### 2.7.1 Karyotype file
+Scaffold lengths were obtained from the final genome assembly using samtools faidx. The 21 chromosome-level scaffolds were then extracted and formatted as a karyotype file for downstream visualization.
+
+```bash
+#Get lengths using samtools
+samtools faidx genome.sc25.fasta
+
+# Extract scaffolds that represent chromosomes
+awk '{print $1, $2}' genome.sc25.fasta.fai | grep -E "^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21)\b" > scaffolds.txt
+
+# Add a middle column with "0" for start position
+awk '{print $1 "\t0\t" $2}' scaffolds.txt > karyotype.txt
+
+# Add header and convert to 3 columns
+(echo -e "Chr\tStart\tEnd"; awk '{print $1 "\t0\t" $2}' karyotype.txt) > karyotype_final.txt
+```
+
+#### 2.7.2 Collapse repeat classifications
+
+A simplified repeat annotation file was generated from the final repeat annotation produced in Step 2.5. Detailed repeat classifications were collapsed into broader repeat categories to facilitate visualization.
+
+The resulting GFF3 file was used for downstream repeat distribution plotting.
+
+```bash
+INPUT="final_mask_annotated.gff3"
+OUTPUT="Rideogram.gff3"
+
+# Step 1: Filter chromosome-level scaffolds 
+awk 'BEGIN{for(i=1;i<=21;i++)k["scaffold_"i]} /^#/ || $1 in k' "$INPUT" > temp.gff3
+
+# Step 2: Add collapsed classification
+awk -v OFS='\t' '
+/^#/ {
+    print
+    next
+}
+{
+    # Extract classification
+    split($9, a, ";")
+    for (i in a) {
+        if (a[i] ~ /^classification=/) {
+            class = a[i]
+            sub("classification=", "", class)
+            break
+        }
+    }
+    
+    # Collapse into categories
+    if (class ~ /LTR/ || class ~ /^LTR/) {
+        c = "LTR_retrotransposons"
+    } else if (class ~ /LINE/ || class ~ /^LINE/) {
+        c = "LINE_retrotransposons"
+    } else if (class ~ /SINE/ || class ~ /^SINE/) {
+        c = "SINE_retrotransposons"
+    } else if (class ~ /PLE/ || class == "Retroposon") {
+        c = "PLE_retrotransposons"
+    } else if (class ~ /Helitron/ || class ~ /^RC\// || class ~ /^DNA\/Helitron/) {
+        c = "Helitrons"
+    } else if (class ~ /DNA/ || class ~ /MITE/) {
+        c = "DNA_transposons"
+    } else if (class == "Simple_repeat" || class ~ /Simple_repeat/) {
+        c = "Simple_repeats"
+    } else if (class == "Low_complexity" || class ~ /Low_complexity/) {
+        c = "Low_complexity"
+    } else if (class ~ /Satellite/) {
+        c = "Satellite"
+    } else if (class == "rRNA" || class == "tRNA" || class == "snRNA" || class == "srpRNA" || class ~ /RNA/) {
+        c = "RNA_genes"
+    } else if (class == "Unknown" || class == "unknown" || class == "Unclassified") {
+        c = "Unclassified"
+    } else if (class == "ARTEFACT") {
+        # Skip Artifacts
+        next
+    } else {
+        c = "Other"
+    }
+    
+    # Print with collapsed column added
+    print $1, $2, $3, $4, $5, $6, $7, $8, $9 ";collapsed=" c
+}
+' temp.gff3 > "$OUTPUT"
+
+# Clean up
+rm -f temp.gff3
+
+echo "Done! Output: $OUTPUT"
+echo "Total lines: $(wc -l < $OUTPUT)"
+
+# Show summary
+echo ""
+echo "Collapsed categories (Artifacts removed):"
+grep -o "collapsed=[^;]*" "$OUTPUT" | sort | uniq -c | sort -rn
+```
+
+#### 2.7.3 Repeat coordinate file
+
+A tab-delimited file containing the coordinates and collapsed repeat classifications was generated for each repeat annotation.
+
+```bash
+INPUT_GFF="Rideogram21.gff3"
+OUTPUT_LABELS="Rideogram_repeat_labels.txt"
+
+echo "Recreating labels file with all scaffolds"
+
+# Extract repeat labels from GFF
+awk -v OFS='\t' '
+/^#/ {next}
+{
+    # Extract classification and collapsed category
+    split($9, attrs, ";")
+    classification = ""
+    collapsed = ""
+    for (i in attrs) {
+        if (attrs[i] ~ /^classification=/) {
+            classification = attrs[i]
+            sub("classification=", "", classification)
+        }
+        if (attrs[i] ~ /^collapsed=/) {
+            collapsed = attrs[i]
+            sub("collapsed=", "", collapsed)
+        }
+    }
+    
+    # Assign colors based on collapsed category
+    if (collapsed == "DNA_transposons") color = "#E74C3C"
+    else if (collapsed == "LTR_retrotransposons") color = "#E67E22"
+    else if (collapsed == "LINE_retrotransposons") color = "#F1C40F"
+    else if (collapsed == "SINE_retrotransposons") color = "#9B59B6"
+    else if (collapsed == "Helitrons") color = "#1ABC9C"
+    else if (collapsed == "PLE_retrotransposons") color = "#2ECC71"
+    else if (collapsed == "Simple_repeats") color = "#3498DB"
+    else if (collapsed == "Low_complexity") color = "#95A5A6"
+    else if (collapsed == "Satellite") color = "#BDC3C7"
+    else if (collapsed == "RNA_genes") color = "#2C3E50"
+    else if (collapsed == "Unclassified") color = "#7F8C8D"
+    else color = "#999999"  # Other/Artifact
+    
+    # Print: Type, Shape, Chr, Start, End, Color
+    print collapsed, "box", $1, $4, $5, color
+}
+' "$INPUT_GFF" > "$OUTPUT_LABELS"
+
+# Add header
+sed -i '1iType\tShape\tChr\tStart\tEnd\tColor' "$OUTPUT_LABELS"
+
+echo "Done! Output: $OUTPUT_LABELS"
+echo ""
+echo "Checking scaffold_1:"
+grep -c "^scaffold_1" "$OUTPUT_LABELS"
+
+echo ""
+echo "Total labels: $(wc -l < $OUTPUT_LABELS)"
+
+echo ""
+echo "Scaffolds in labels file:"
+cut -f3 "$OUTPUT_LABELS" | grep -v "Chr" | sort -u
+```
+
+#### 2.7.4 Aggregate repeat annotations into windows
+
+Repeat coordinates were aggregated into 10 kb windows. For each window, the repeat category covering the greatest number of base pairs was assigned as the predominant repeat type. This simplified representation was used for repeat distribution visualization.
+
+```python
+import sys
+
+INPUT_FILE = "Rideogram_repeat_labels.txt"
+OUTPUT_FILE = "repeat_labels_aggregated_100bp.txt"
+WINDOW_SIZE = 10000 # 10kb windows
+
+COLORS = {
+    "DNA_transposons": "#E74C3C",
+    "LTR_retrotransposons": "#E67E22",
+    "LINE_retrotransposons": "#F1C40F",
+    "SINE_retrotransposons": "#9B59B6",
+    "Helitrons": "#1ABC9C",
+    "PLE_retrotransposons": "#2ECC71",
+    "Simple_repeats": "#3498DB",
+    "Low_complexity": "#95A5A6",
+    "Satellite": "#BDC3C7",
+    "RNA_genes": "#2C3E50",
+    "Unclassified": "#7F8C8D",
+    "Artifact": "#999999"
+}
+
+print(f"Reading {INPUT_FILE}...", file=sys.stderr)
+
+bp_coverage = {}
+
+# Read the labels file
+with open(INPUT_FILE, "r") as f:
+    for line in f:
+        if line.startswith("Type"):
+            continue
+        parts = line.strip().split("\t")
+        if len(parts) < 6:
+            continue
+        repeat_type = parts[0]
+        shape = parts[1]
+        chrom = parts[2]
+        start = int(parts[3])
+        end = int(parts[4])
+        color = parts[5]
+        
+        bp = end - start + 1
+        window_start = ((start - 1) // WINDOW_SIZE) * WINDOW_SIZE + 1
+        
+        key = (chrom, window_start, repeat_type)
+        bp_coverage[key] = bp_coverage.get(key, 0) + bp
+		
+# Now find the dominant type per window
+windows = {}
+for (chrom, window_start, repeat_type), bp in bp_coverage.items():
+    window_key = (chrom, window_start)
+    if window_key not in windows:
+        windows[window_key] = {}
+    windows[window_key][repeat_type] = bp
+
+print(f"Found {len(windows)} windows", file=sys.stderr)
+
+# Write output
+print(f"Writing {OUTPUT_FILE}...", file=sys.stderr)
+
+with open(OUTPUT_FILE, "w") as out:
+    out.write("Type\tShape\tChr\tStart\tEnd\tColor\n")
+    
+    for (chrom, window_start), types in sorted(windows.items()):
+        # Find dominant type
+        max_bp = 0
+        dominant_type = ""
+        for t, bp in types.items():
+            if bp > max_bp:
+                max_bp = bp
+                dominant_type = t
+        
+        window_end = window_start + WINDOW_SIZE - 1
+        color = COLORS.get(dominant_type, "#999999")
+        out.write(f"{dominant_type}\tbox\t{chrom}\t{window_start}\t{window_end}\t{color}\n")
+
+print(f"Done! Output: {OUTPUT_FILE}", file=sys.stderr)
+print(f"Total windows: {len(windows)}", file=sys.stderr)
+```
+
+#### 2.7.5 Generate repeat density points
+
+Repeat coordinates were converted into point data for density-based visualization.
+
+```bash
+INPUT_GFF="Rideogram21.gff3"
+OUTPUT_POINTS="repeat_points.txt"
+
+echo "Creating point data from GFF3..."
+
+# Extract just the coordinates of each repeat (one per line)
+awk -v OFS='\t' '
+/^#/ {next}
+{
+    # Print Chr, Start, End for each repeat
+    print $1, $4, $5
+}
+' "$INPUT_GFF" > "$OUTPUT_POINTS"
+
+echo "Done! Created $(wc -l < $OUTPUT_POINTS) points"
+head "$OUTPUT_POINTS"
+```
+
+#### 2.7.6 Plot repeat distribution and density
+
+The karyotype, aggregated repeat annotations, and repeat density data were visualized in R using the karyoploteR package. 
+
+Repeat distribution and repeat density were plotted separately and subsequently combined into the final figure using an image-editing program.
+
+```r
+library(karyoploteR)
+library(GenomicRanges)
+library(dplyr)
+
+karyotype <- read.table("karyotype_final.txt", header = FALSE, sep = "\t")
+colnames(karyotype) <- c("Chr", "Start", "End")
+labels <- read.table("repeat_labels_aggregated.txt", 
+                     header = TRUE, 
+                     sep = "\t", 
+                     stringsAsFactors = FALSE)
+					 
+#-----------------------------------------------
+# PLOT REPEAT CLASSES   
+#-----------------------------------------------
+
+# Colours for Repeat classes
+color_map <- c(
+  "DNA_transposons" = "#F5B041",     
+  "LTR_retrotransposons" = "#1D3557", 
+  "LINE_retrotransposons" = "#2A9D8F", 
+  "SINE_retrotransposons" = "#7B241C", 
+  "Helitrons" = "#007BA7",          
+  "PLE_retrotransposons" = "#E76F51", 
+  "Simple_repeats" = "#B5838D",      
+  "Low_complexity" = "#F08080",      
+  "Satellite" = "#264653",           
+  "RNA_genes" = "#FFA07A",           
+  "Unclassified" = "#8E44AD"         
+)
+
+labels$Color <- color_map[labels$Type]
+
+# Remove any rows with NA color
+labels <- labels[!is.na(labels$Color), ]
+
+cat("Loaded", nrow(labels), "windows\n")
+
+# Convert to GRanges
+labels_gr <- GRanges(seqnames = labels$Chr,
+                     ranges = IRanges(start = labels$Start, end = labels$End),
+                     type = labels$Type,
+                     color = labels$Color)
+					 
+# Create plot
+png("repeat_plot.png", width = 14, height = 10, units = "in", res = 300)
+
+kp <- plotKaryotype(genome = karyotype, 
+                    plot.type = 1, 
+                    main = "Repeat Distribution (10kb windows, BP-weighted)",
+                    chromosomes = paste0("scaffold_", 1:21))
+
+kp <- kpPlotRegions(kp, data = labels_gr,
+                    col = labels_gr$color,
+                    border = NA,
+                    r0 = 0, 
+                    r1 = 0.7)
+					
+# Legend
+legend("right", 
+       legend = names(color_map), 
+       col = color_map, 
+       pch = 15, 
+       cex = 0.6, 
+       title = "Repeat Type")
+
+dev.off()
+
+#-----------------------------------------------
+# PLOT GENE DENSITY   
+#-----------------------------------------------
+
+points <- read.table("point.density.txt", 
+                     header = FALSE, 
+                     sep = "\t", 
+                     stringsAsFactors = FALSE)
+colnames(points) <- c("Chr", "Start", "End")
+
+points_gr <- GRanges(seqnames = points$Chr,
+                     ranges = IRanges(start = points$Start, end = points$End))
+
+png("gene.density.png", width = 14, height = 10, units = "in", res = 300)
+
+kp <- plotKaryotype(genome = karyotype, 
+                    plot.type = 6, 
+                    main = "Repeat Density",
+                    cex = 0.8)
+
+# Add White background
+kpDataBackground(kp, color = "#FFFFFF")
+
+# Top half density
+kp <- kpPlotDensity(kp, data = points_gr,
+                    window.size = 1e6,
+                    data.panel = "ideogram",
+                    col = "#8AA6D9", 
+                    border = "#8AA6D9",
+                    r0 = 0.5, r1 = 1)
+
+# Bottom half density (inverted)
+kp <- kpPlotDensity(kp, data = points_gr,
+                    window.size = 1e6,
+                    data.panel = "ideogram",
+                    col = "#8AA6D9", 
+                    border = "#8AA6D9",
+                    r0 = 0.5, r1 = 0)
+
+dev.off()
+```
+
+Individual karyotype plots were generated for each repeat category using 1 kb windows. These maps provide a higher-resolution view of the distribution of individual repeat classes across the 21 chromosome-level scaffolds.
+
+```r
+library(karyoploteR)
+library(GenomicRanges)
+library(dplyr)
+
+# Load labels
+labels <- read.table("repeat_labels_aggregated.txt", 
+                     header = TRUE, 
+                     sep = "\t", 
+                     stringsAsFactors = FALSE)
+
+cat("Loaded", nrow(labels), "windows\n")
+
+# Color map for each repeat type
+color_map <- c(
+  "DNA_transposons" = "#F5B041",     
+  "LTR_retrotransposons" = "#1D3557", 
+  "LINE_retrotransposons" = "#2A9D8F", 
+  "SINE_retrotransposons" = "#7B241C", 
+  "Helitrons" = "#007BA7",          
+  "PLE_retrotransposons" = "#E76F51", 
+  "Simple_repeats" = "#B5838D",      
+  "Low_complexity" = "#F08080",      
+  "Satellite" = "#264653",           
+  "RNA_genes" = "#FFA07A",           
+  "Unclassified" = "#8E44AD"         
+)
+
+# Get all repeat types present in your data
+repeat_types <- unique(labels$Type)
+cat("Repeat types found:\n")
+print(repeat_types)
+
+# Create a directory for the plots
+dir.create("repeat_maps", showWarnings = FALSE)
+
+# Function to create map for each repeat type
+create_repeat_map <- function(repeat_type, labels, karyotype, color_map) {
+  
+  cat("Creating map for:", repeat_type, "\n")
+  
+  # Filter labels for this repeat type
+  subset_labels <- labels[labels$Type == repeat_type, ]
+  
+  if (nrow(subset_labels) == 0) {
+    cat("  No data for", repeat_type, "- skipping\n")
+    return(NULL)
+  }
+  
+  cat("  Windows:", nrow(subset_labels), "\n")
+  
+  # Trim windows to scaffold ends
+  scaffold_lengths <- setNames(karyotype$End, karyotype$Chr)
+  
+  for (i in 1:nrow(subset_labels)) {
+    chr <- subset_labels$Chr[i]
+    if (subset_labels$End[i] > scaffold_lengths[chr]) {
+      subset_labels$End[i] <- scaffold_lengths[chr]
+    }
+    if (subset_labels$Start[i] > scaffold_lengths[chr]) {
+      subset_labels$Start[i] <- NA
+    }
+  }
+  subset_labels <- subset_labels[!is.na(subset_labels$Start), ]
+  
+  # Add color
+  subset_labels$Color <- color_map[repeat_type]
+  
+  # Convert to GRanges
+  labels_gr <- GRanges(seqnames = subset_labels$Chr,
+                       ranges = IRanges(start = subset_labels$Start, end = subset_labels$End),
+                       type = subset_labels$Type,
+                       color = subset_labels$Color)
+  
+  # Create plot filename
+  filename <- paste0("repeat_maps/", gsub("/", "_", repeat_type), ".png")
+  
+  png(filename, width = 14, height = 10, units = "in", res = 300)
+  
+  kp <- plotKaryotype(genome = karyotype, 
+                      plot.type = 1, 
+                      main = paste(repeat_type, "Distribution (1kb windows)"),
+                      chromosomes = paste0("scaffold_", 1:21))
+  
+  kp <- kpPlotRegions(kp, data = labels_gr,
+                      col = labels_gr$color,
+                      border = NA,
+                      r0 = 0, 
+                      r1 = 1)
+  
+  # Add legend with color
+  legend("right", 
+         legend = repeat_type, 
+         col = color_map[repeat_type],
+         pch = 15, 
+         pt.cex = 2,
+         cex = 0.8, 
+         title = "Repeat Type")
+  
+  dev.off()
+  
+  cat("  Saved:", filename, "\n")
+}
+
+# Create map for each repeat type
+for (type in repeat_types) {
+  create_repeat_map(type, labels, karyotype, color_map)
+}
+```
+
+### 2.8. Functional annotation
 
 InterProScan
 
