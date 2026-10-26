@@ -41,19 +41,19 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
   - [2.2 Gene prediction](#22-gene-prediction)
     - [2.2.1 BRAKER3 using short RNA reads](#221-braker3-using-short-RNA-reads)
     - [2.2.2 BRAKER3 using protein and short RNA reads](#222-braker3-using-protein-and-short-RNA-reads)
-    - [2.2.3. TSEBRA](#223-tsebra)
+    - [2.2.3 TSEBRA](#223-tsebra)
   - [2.3 Proteome taxonomic assessment](#23-proteome-taxonomic-assessment)
-  - [2.4. Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
-  - [2.5. Reclassifying repeats ](#25-reclassifying-repeats)
-  - [2.6. Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
-  - [2.7. Repeat classes visualization](#27-repeat-classes-visualization)
-	- [2.7.1. Karyotype file](#271-karyotype-file)
-  	- [2.7.2. Collapse repeat classifications](#272-collapse-repeat-classifications)
-    - [2.7.3. Repeat coordinate file](#273-repeat-coordinate-file)
-    - [2.7.4. Aggregate repeat annotations into windows](#274-aggregate-repeat-annotations-into-windows)
-    - [2.7.5. Repeat density points](#275-repeat-density-points)
-    - [2.7.6. Plot repeat distribution and density](#276-plot-repeat-distribution-and-density)
-  - [2.8. Functional annotation](#27-functional-annotation)
+  - [2.4 Scaffold removal and final genome assembly](#24-scaffold-removal-and-final-genome-assembly)
+  - [2.5 Reclassifying repeats ](#25-reclassifying-repeats)
+  - [2.6 Telomeric and centromeric regions ](#26-telomeric-and-centromeric-regions)
+  - [2.7 Repeat classes visualization](#27-repeat-classes-visualization)
+	- [2.7.1 Karyotype file](#271-karyotype-file)
+  	- [2.7.2 Collapse repeat classifications](#272-collapse-repeat-classifications)
+    - [2.7.3 Repeat coordinate file](#273-repeat-coordinate-file)
+    - [2.7.4 Aggregate repeat annotations into windows](#274-aggregate-repeat-annotations-into-windows)
+    - [2.7.5 Repeat density points](#275-repeat-density-points)
+    - [2.7.6 Plot repeat distribution and density](#276-plot-repeat-distribution-and-density)
+  - [2.8 Functional annotation](#27-functional-annotation)
 - [3. Gene family evolution in phylogenetic context](#3-gene-family-evolution-in-phylogenetic-context)
   - [3.1 Phylogenomic analysis](#31-phylogenomic-analysis)
      - [3.1.1 Orthofinder](#311-orthofinder)
@@ -69,47 +69,45 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 
 | Software | Version | Section |
 |---|---|---|
-| NanoQC / NanoComp | 0.9.4 / 1.20.0 | 1 |
-| FastQC | – | 1 |
-| FastK / Histex | 1.1.0 | 1 |
-| PloidyPlot / Smudgeplot | 0.3.0 | 1 |
-| GeneScopeFK | 1.0.0 | 1 |
-| Hifiasm | 0.19.5 | 2 |
-| Minimap2 | 2.28 (sections 2, 4); 2.22 (section 6) | 2, 4, 6 |
-| Racon | 1.5.0 | 2 |
-| LongStitch (Tigmint, ntLink, ARKS/LINKS) | 1.0.5 (LINKS 1.8.7) | 2 |
-| BWA-MEM | 0.7.19 | 3 |
-| SAMtools | 1.23 | 3 |
-| YaHS | 1.2.2 | 3 |
-| Python / NumPy / Matplotlib | 3.10.14 / 1.26.4 / 3.9.1 | 3 |
-| QUAST | 5.3.0 | 4 |
-| DIAMOND | 2.0.13 | 4, 7 |
-| BlobTools | 1.0 | 4 |
-| BlobToolKit | 2.0 | 4 |
-| BUSCO (metazoa_odb10) | 5.8.2 | 4, 6 |
-| EDTA | 2.0.0 | 5 |
-| RepeatModeler / RepeatMasker | 2.0.6 / 4.1.8 | 5 |
-| BEDTools | 2.30.0 | 5 |
-| R VennDiagram | – | 5 |
-| Entrez Direct | – | 6 |
-| StringTie2 | – | 6 |
-| BRAKER3 | 3.0.8 | 6 |
-| TSEBRA | 1.1.2.5 | 6 |
-| gffread | – | 6 |
-| R dplyr / readr / stringr | – | 7 |
-| eggNOG-mapper | 2.1.3 | 8 |
-| InterProScan | 5.76-107.0 | 8 |
-| OrthoFinder | 2.5.5 | 9 |
-| MAFFT / ClipKIT / AMAS | 7.525 / 2.7.0 / 1.0 | 9 |
-| IQ-TREE | 3.0.1 | 9 |
-| GNU parallel | – | 9 |
-| ASTER (ASTRAL-IV) | – | 9 |
-| Newick Utilities | 1.6 | 9 |
-| R ape | 5.8-1 | 10 |
-| CAFE5 | – | 10 |
-| CafePlotter | 0.2.0 | 10 |
-
-– version not recorded.
+| NanoQC / NanoComp | 0.9.4 / 1.20.0 | 1.1 |
+| FastQC | – | 1.1 |
+| FastK / Histex | 1.1.0 | 1.2 |
+| PloidyPlot / Smudgeplot | 0.3.0 | 1.2 |
+| GeneScopeFK | 1.0.0 | 1.2 |
+| Hifiasm | 0.19.5 | 1.3 |
+| Minimap2 | 2.28 (sections 1.4); 2.22 (section 1.8, 2.2.1, 2.2.3) | 1.4, 1.8, 2.2.1, 2.2.3 |
+| Racon | 1.5.0 | 1.4 |
+| LongStitch (Tigmint, ntLink, ARKS/LINKS) | 1.0.5 (LINKS 1.8.7) | 1.5 |
+| QUAST | 5.3.0 | 1.6 |
+| DIAMOND | 2.0.13 | 1.7, 2.3. |
+| SAMtools | 1.20 (section 1.8, 2.2.1, 2.2.3, 2.7.1) 1.23 (section 1.11, 1.12) | 1.8, 1.11, 1.12, 2.2.1, 2.2.3, 2.7.1 |
+| BlobTools | 1.0 | 1.9, 1.10, 2.3, 2.4 |
+| BlobToolKit | 2.0 | 1.10, 2.4 |
+| BUSCO (metazoa_odb12, lophotrochozoa_odb12) | 5.8.2 | 1.10, 2.2.1, 2.2.2, 2.4 |
+| BWA-MEM | 0.7.19 | 1.11 |
+| YaHS | 1.2.2 | 1.11 |
+| Python (section 1.13, 2.7.4)  / NumPy / Matplotlib | 3.10.14, 3.12.2 / 1.26.4 / 3.9.1 | 1.13, 2.7.4 |
+| blastn | 2.15.0 | 1.15
+| EDTA | 2.0.0 | 2.1.1. |
+| RepeatModeler / RepeatMasker | 2.0.7 / 4.1.8 | 2.1.2 |
+| BEDTools | 2.30.0 | 2.1.3., 2.5 |
+| R VennDiagram / grid / dplyr (sections 2.1.4, 2.3, 2.7.6) | 1.8.2 / 4.4.3 / 1.2.1 | 2.1.4, 2.3, 2.7.6 |
+| BRAKER3 | 3.0.8 | 2.2.1, 2.2.2 |
+| esearch / efetch | 23.8 | 2.2.2 |
+| TSEBRA | 1.1.2.5 | 2.2.3 |
+| StringTie2 | 2.2.1 | 2.2.3 |
+| gffread | 0.12.7 | 2.2.3 |
+| R readr / stringr | 2.2.0 / 1.6.0 | 2.3 |
+| seqkit | 2.10.0 | 2.4 |
+| quarTeT | 1.3.1 | 2.6 |
+| R karyoploteR / GenomicRanges | 1.32.0 / 1.58.0 | 2.7.6 |
+| InterProScan | 5.76-107.0 | 2.8 |
+| eggNOG-mapper | 2.1.3 | 2.8 |
+| OrthoFinder | 2.5.5 | 3.1.1 |
+| MAFFT / ClipKIT / AMAS / IQ-TREE / GNU parallel / ASTER (ASTRAL-IV) / Newick Utilities/ | 7.525 / 2.7.0 / 1.0 / 3.0.1 / 20260722 / 1.23.4.6 / 1.6 | 3.1.2 |
+| R ape (section 3.1.3, 3.2.1) / ggtree / ggplot2 / | 5.8-1 / 3.5.2 | 3.1.3, 3.2.1 |
+| R phytools | 2.5-2 | 3.2.1 |
+| CAFE5 / CafePlotter | 5.1.1 / 0.2.0 | 3.2.2|
 
 ## 1. Genome assembly and assessment
 
@@ -687,7 +685,7 @@ awk 'BEGIN{FS="\n"; OFS="\n"}
 
 ### 2.1 Repeat annotation and masking
 
-#### 2.1.1. Repeat annotation using EDTA
+#### 2.1.1 Repeat annotation using EDTA
 
 ```bash
 QUERY=genome.sc26.fasta
@@ -695,7 +693,7 @@ QUERY=genome.sc26.fasta
 EDTA.pl --genome "$QUERY" --sensitive 1 --anno 1 --threads 32 2>&1 | tee EDTA.log
 ```
 
-#### 2.1.2. Repeat annotation using RepeatMasker
+#### 2.1.2 Repeat annotation using RepeatMasker
 
 Repeat annotation using RepeatMasker and a *de novo* repeat library generated with RepeatModeler.
 
@@ -819,7 +817,7 @@ echo "Results stored in: $OUTPUT_DIR"
 echo "---------------------------------------------"
 ```
 
-#### 2.1.3. Merge masking
+#### 2.1.3 Merge masking
 
 The three outputs from the masking steps were merged into a single non-overlapping masked genome.
 The inputs required to generate a Venn diagram comparing the three tools were also produced within this script.
@@ -889,7 +887,7 @@ echo "Completed on $(date '+%Y-%m-%d %H:%M:%S'). All results are inside: $OUTPUT
 mv ../merged_masking.log  "$OUTPUT_DIR"
 ```
 
-#### 2.1.4. Comparison of masking tools
+#### 2.1.4 Comparison of masking tools
 
 A Venn diagram was generated in R statistical software to compare the outputs from the three tools.
 
@@ -961,8 +959,8 @@ grid.rect(gp = gpar(fill = "white", col = NA))  # <- Add white rectangle
 grid.draw(gList(venn_plot))
 ```
 
-### 2.2. Gene prediction
-#### 2.2.1. BRAKER3 using short RNA reads
+### 2.2 Gene prediction
+#### 2.2.1 BRAKER3 using short RNA reads
 
 Short-read RNA-sequencing data from Álvarez-Campos (2024) were aligned to the genome for use as evidence in BRAKER3.
 
@@ -1088,7 +1086,7 @@ echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-----------------------------------------"
 ```
 
-#### 2.2.2. BRAKER3 using protein and short RNA reads
+#### 2.2.2 BRAKER3 using protein and short RNA reads
 
 Protein sequences from the class Clitellata (phylum: Annelida) were retrieved from the NCBI database for use as evidence in BRAKER3.
 
@@ -1196,7 +1194,7 @@ echo "-----------------------------------------"
 echo " All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-----------------------------------------"
 ```
-#### 2.2.3. TSEBRA
+#### 2.2.3 TSEBRA
 
 The outputs from BRAKER3 were combined with long-read sequencing data in TSEBRA, with priority given to RNA-sequencing evidence.
 
@@ -1360,7 +1358,7 @@ echo "All analyses completed successfully on $(date '+%Y-%m-%d %H:%M:%S')"
 echo "-------------------------------------------------------------------"
 ```
 
-### 2.3. Proteome taxonomic assessment
+### 2.3 Proteome taxonomic assessment
 
 DIAMOND BLASTp against the NCBI nr database was performed to further assess the taxonomic composition of the proteome.
 
@@ -1471,7 +1469,7 @@ write_csv(top_hits_per_scaffold, "bestblast_out_file.csv")
 Taxify was also run as described in Section 1.9 to obtain taxonomic assignments for the protein BLAST hits. The taxonomic assignments and the top three BLAST hits for each scaffold were then inspected manually.
 Scaffold 24 was identified as potential contamination and was removed.
 
-### 2.4. Scaffold removal and final genome assembly
+### 2.4 Scaffold removal and final genome assembly
 
 Scaffold 24 was removed from the genome assembly.
 
@@ -1525,7 +1523,7 @@ seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc25.fast
 seqkit grep -v -f scaffold24_transcripts.txt cds.fasta > cds.sc25.fasta
 ```
 
-### 2.5. Reclassifying repeats 
+### 2.5 Reclassifying repeats 
 
 As each masking tool classifies repeats using different names, the repeats in the final merged masked genome were reclassified into major categories to characterise the repeat content of the genome.
 Each interval in the merged mask was assigned a repeat class based on the overlapping annotations, with the following priority: EDTA > RepeatModeler > Dfam. The script produces the final repeat BED/GFF3 files and summaries by repeat class and repeat group.
@@ -1856,7 +1854,7 @@ echo "  - final_repeat_class_summary_bp.txt: Detailed class breakdown"
 echo "  - final_repeat_class_summary_genome_percent.txt: Class percentages"
 ```
 
-### 2.6. Telomeric and centromeric regions
+### 2.6 Telomeric and centromeric regions
 
 The quarTeT pipeline was used to identify telomeric and centromeric regions.
 TE annotations generated using EDTA were provided as input for CentroMiner, as recommended by the quarTeT workflow.
@@ -2386,7 +2384,7 @@ for (type in repeat_types) {
 }
 ```
 
-### 2.8. Functional annotation
+### 2.8 Functional annotation
 
 InterProScan
 
@@ -2443,9 +2441,9 @@ emapper.py \
 
 ## 3. Gene family evolution in phylogenetic context
 
-### 3.1. Phylogenomic analysis
+### 3.1 Phylogenomic analysis
 
-#### 3.1.1. Orthofinder
+#### 3.1.1 Orthofinder
 
 Prior to Orthofinder, protein IDs were made uniquely identifiable by species for downstream comparative analyses. The below script adds the .faa filename (species name) as a prefix to each protein FASTA header.
 
@@ -2499,7 +2497,7 @@ awk '/^>/ {
 }' "$INPUT_DIR"/*.faa > "$OUTPUT"
 ```
 
-#### 3.1.2. IQTREE and ASTRAL
+#### 3.1.2 IQTREE and ASTRAL
 A phylogenetic tree was constructed using IQ-TREE and ASTRAL
 
 ```bash
@@ -2628,7 +2626,7 @@ echo "Output: $WORKDIR"
 echo "---------------------------------------------"
 ```
 
-#### 3.1.3. Phylogenetic tree
+#### 3.1.3 Phylogenetic tree
 
 ```r 
 
@@ -2654,7 +2652,7 @@ ggtree(tree) +
   scale_y_reverse()
 ```
 
-### 3.2. Gene Family Evolution
+### 3.2 Gene Family Evolution
 
 #### 3.2.1 Ultrametric tree
 
