@@ -465,7 +465,7 @@ echo "------------------------------------------------"
 cd "$SNAILPLOT_DIR"
 
 blobtools create --fasta "$QUERY" "$BLOB_DIR"
-blobtools add --busco "$BUSCO_DIR/${BASENAME}_BUSCO/run_metazoa_odb10/full_table.tsv" "$BLOB_DIR"
+blobtools add --busco "$BUSCO_DIR/${BASENAME}_BUSCO/run_lophotrochozoa_odb12.2/full_table.tsv" "$BLOB_DIR"
 blobtools view --plot --view snail "$BLOB_DIR"
 
 echo "Snail plot created in $SNAILPLOT_DIR"
@@ -1046,7 +1046,7 @@ QUERY=genome.sc26.softmasked.fasta
 BAM_FILES=merged.sorted.bam
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
-BUSCO_DB=metazoa_odb10
+BUSCO_DB=lophotrochozoa_odb12.2
 
 mkdir -p "$OUTPUT_DIR" "$BUSCO_DIR"
 cd "$OUTPUT_DIR" || exit
@@ -1155,7 +1155,7 @@ BAM_FILES=merged.sorted.bam
 PROT=clitellata_proteins.fasta
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
-BUSCO_DB=metazoa_odb10
+BUSCO_DB=run_lophotrochozoa_odb12.2
 
 mkdir -p "$OUTPUT_DIR" "$BUSCO_DIR"
 cd "$OUTPUT_DIR" || exit
@@ -1308,7 +1308,7 @@ TSEBRA_FORMATTED_GTF=tsebra.format.gtf
 QUERY=genome.sc26.softmasked.fasta
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
-BUSCO_DB=metazoa_odb10
+BUSCO_DB=run_lophotrochozoa_odb12.2
 BUSCO_OUTPUT_NAME="$(basename $OUTPUT_DIR)_BUSCO"
 
 PREFIX="Pristina"
