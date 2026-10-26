@@ -75,7 +75,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 | PloidyPlot / Smudgeplot | 0.3.0 | 1.2 |
 | GeneScopeFK | 1.0.0 | 1.2 |
 | Hifiasm | 0.19.5 | 1.3 |
-| Minimap2 | 2.28 (sections 1.4); 2.22 (section 1.8, 2.2.1, 2.2.3) | 1.4, 1.8, 2.2.1, 2.2.3 |
+| Minimap2 | 2.28 (section 1.4); 2.22 (section 1.8, 2.2.1, 2.2.3) | 1.4, 1.8, 2.2.1, 2.2.3 |
 | Racon | 1.5.0 | 1.4 |
 | LongStitch (Tigmint, ntLink, ARKS/LINKS) | 1.0.5 (LINKS 1.8.7) | 1.5 |
 | QUAST | 5.3.0 | 1.6 |
