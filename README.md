@@ -89,7 +89,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 | Python (section 1.13, 2.7.4)  / NumPy / Matplotlib | 3.10.14, 3.12.2 / 1.26.4 / 3.9.1 | 1.13, 2.7.4 |
 | blastn | 2.15.0 | 1.15
 | EDTA | 2.0.0 | 2.1.1. |
-| RepeatModeler / RepeatMasker | 2.0.7 / 4.1.8 | 2.1.2 |
+| RepeatModeler / RepeatMasker / Dfam (partitions 15 and 16). | 2.0.7 / 4.1.8 / 3.9 | 2.1.2 |
 | BEDTools | 2.30.0 | 2.1.3., 2.5 |
 | R VennDiagram / grid / dplyr (sections 2.1.4, 2.3, 2.7.6) | 1.8.2 / 4.4.3 / 1.2.1 | 2.1.4, 2.3, 2.7.6 |
 | BRAKER3 | 3.0.8 | 2.2.1, 2.2.2 |
