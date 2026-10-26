@@ -105,7 +105,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 | eggNOG-mapper | 2.1.3 | 2.8 |
 | OrthoFinder | 2.5.5 | 3.1.1 |
 | MAFFT / ClipKIT / AMAS / IQ-TREE / GNU parallel / ASTER (ASTRAL-IV) / Newick Utilities | 7.525 / 2.7.0 / 1.0 / 3.0.1 / 20260722 / 1.23.4.6 / 1.6 | 3.1.2 |
-| R ape (section 3.1.3, 3.2.1) / ggtree / ggplot2 / | 5.8-1 / 3.5.2 | 3.1.3, 3.2.1 |
+| R ape (section 3.1.3, 3.2.1) / ggtree / ggplot2 | 5.8-1 / 3.5.2 | 3.1.3, 3.2.1 |
 | R phytools | 2.5-2 | 3.2.1 |
 | CAFE5 / CafePlotter | 5.1.1 / 0.2.0 | 3.2.2|
 
