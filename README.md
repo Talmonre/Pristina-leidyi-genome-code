@@ -1,8 +1,8 @@
-# Observations on the genome of selectively asexual organism *Pristina leidyi*
+# An annotated chromosome-level genome assembly of the water nymph worm *Pristina leidyi* (Annelida: Clitellata: Naididae) for studies of regeneration and asexual reproduction.
 
 Code for the genome assembly, annotation and comparative analyses in:
 
-> Achilleos K\*, Álvarez-Campos P\*, Bailie MA, Garcia-Castro H, Solana J, Özpolat BD, Kenny NJ. *An annotated chromosome-level genome assembly of the water nymph worm* Pristina leidyi *(Annelida: Clitellata: Naididae) for studies of regeneration and asexual reproduction*. \*Co-first authors.
+> Achilleos K\*, Álvarez-Campos P\*, Bailie MA, Garcia-Castro H, Solana J, Özpolat BD, Kenny NJ. An annotated chromosome-level genome assembly of the water nymph worm *Pristina leidyi* (Annelida: Clitellata: Naididae) for studies of regeneration and asexual reproduction. \*Co-first authors.
 
 The sequencing data, assembly and annotation are available from NCBI under the accessions given in the paper. This page contains the code only.
 
