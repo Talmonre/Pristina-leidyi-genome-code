@@ -83,7 +83,7 @@ This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5
 | SAMtools | 1.20 (section 1.8, 2.2.1, 2.2.3, 2.7.1) 1.23 (section 1.11, 1.12) | 1.8, 1.11, 1.12, 2.2.1, 2.2.3, 2.7.1 |
 | BlobTools | 1.0 | 1.9, 1.10, 2.3, 2.4 |
 | BlobToolKit | 2.0 | 1.10, 2.4 |
-| BUSCO (metazoa_odb12, lophotrochozoa_odb12) | 5.8.2 | 1.10, 2.2.1, 2.2.2, 2.4 |
+| BUSCO (lophotrochozoa_odb12.2) | 5.8.2 | 1.10, 2.2.1, 2.2.2, 2.4 |
 | BWA-MEM | 0.7.19 | 1.11 |
 | YaHS | 1.2.2 | 1.11 |
 | Python (section 1.13, 2.7.4)  / NumPy / Matplotlib | 3.10.14, 3.12.2 / 1.26.4 / 3.9.1 | 1.13, 2.7.4 |
@@ -423,7 +423,7 @@ DB=nodesDB.txt
 SORTED_BAM=genome.sorted.bam
 OUTPUT_DIR=Output_directory
 BUSCO_DIR=Busco_output_directory
-BUSCO_DB=metazoa_odb10
+BUSCO_DB=lophotrochozoa_odb12.2
 SNAILPLOT_DIR=Snailplot_directory
 BLOB_DIR=BlobDir_directory
 
