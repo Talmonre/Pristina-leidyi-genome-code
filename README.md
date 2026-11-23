@@ -630,10 +630,10 @@ plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 
 ### 1.14 Retain longest scaffolds
 
-The 26 longest scaffolds were retained for downstream analysis. 
+The 25 longest scaffolds were retained for downstream analysis. 
 
 ```bash
-awk '/^>/{n++} n<=26' pristina_scaffolds_filtered_50kb.fa > genome.fasta
+awk '/^>/{n++} n<=25' pristina_scaffolds_filtered_50kb.fa > genome.fasta
 ```
 
 ### 1.15 BLASTn
@@ -664,8 +664,8 @@ The scaffold headers were renamed for simplicity before downstream analysis. A m
 
 ```bash
 input=genome.fasta
-output=genome.sc26.fasta
-mapfile=genome.sc26.fasta.idmap.tsv
+output=genome.sc25.fasta
+mapfile=genome.sc25.fasta.idmap.tsv
 
 awk 'BEGIN{FS="\n"; OFS="\n"} 
 /^>/ {
@@ -688,7 +688,7 @@ awk 'BEGIN{FS="\n"; OFS="\n"}
 #### 2.1.1 Repeat annotation using EDTA
 
 ```bash
-QUERY=genome.sc26.fasta
+QUERY=genome.sc25.fasta
 
 EDTA.pl --genome "$QUERY" --sensitive 1 --anno 1 --threads 32 2>&1 | tee EDTA.log
 ```
@@ -699,7 +699,7 @@ Repeat annotation using RepeatMasker and a *de novo* repeat library generated wi
 
 ```bash
 # Define paths
-QUERY=genome.sc26.fasta
+QUERY=genome.sc25.fasta
 OUTPUT_DIR=Output_directory
 
 mkdir "$OUTPUT_DIR"
@@ -719,7 +719,7 @@ echo "---------------------------------------------------------"
 
 ```bash
 REPEATMASKER_DB=db-families.fa
-QUERY=genome.sc26.fasta
+QUERY=genome.sc25.fasta
 OUTPUT_DIR=Output_directory
 
 # Extract base name of query file
@@ -770,7 +770,7 @@ Repeat annotation using RepeatMasker and the Dfam 3.9 database (partitions 15 an
 
 ```bash
 REPEATMASKER_DB=Dfam.lib
-QUERY=genome.sc26.fasta
+QUERY=genome.sc25.fasta
 OUTPUT_DIR=Output_directory
 
 # Extract base name of query file
@@ -829,7 +829,7 @@ exec > >(tee -a merged_masking.log) 2>&1
 REPEATMOD_OUT=RepeatMasker_RepeatMod.out
 DFAM_OUT=RepeatMasker_Dfam.out
 EDTA_OUT=EDTA.TEanno.out
-QUERY=genome.sc26.fasta
+QUERY=genome.sc25.fasta
 OUTPUT_DIR=Output_directory
 
 # Extract base name of query file
@@ -969,7 +969,7 @@ echo "-----------------------------------------"
 echo " SHORT RNA READS ALIGNMENT TO GENOME "
 echo "-----------------------------------------"
 
-QUERY=genome.sc26.softmasked.fasta
+QUERY=genome.sc25.softmasked.fasta
 INPUT_DIR=Short_RNA_directory
 OUTPUT_DIR=Output_directory
 
@@ -1042,7 +1042,7 @@ Short-read RNA-seq data were used as evidence in BRAKER3. BUSCO was used to asse
 ```bash
 AUGUSTUS_CONFIG_PATH=config
 SINGULARITY=braker3.sif
-QUERY=genome.sc26.softmasked.fasta
+QUERY=genome.sc25.softmasked.fasta
 BAM_FILES=merged.sorted.bam
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
@@ -1150,7 +1150,7 @@ Short-read RNA-seq data from the previous step and protein sequences were used t
 ```bash
 AUGUSTUS_CONFIG_PATH=config
 SINGULARITY=braker3.sif
-QUERY=genome.sc26.softmasked.fasta
+QUERY=genome.sc25.softmasked.fasta
 BAM_FILES=merged.sorted.bam
 PROT=clitellata_proteins.fasta
 OUTPUT_DIR=Output_directory
@@ -1205,7 +1205,7 @@ echo "-----------------------------------------"
 echo " LONG RNA READS ALIGNMENT TO GENOME "
 echo "-----------------------------------------"
 
-QUERY=genome.sc26.softmasked.fasta
+QUERY=genome.sc25.softmasked.fasta
 READS_FQ=long_RNA_reads.fasta
 OUTPUT_DIR=Output_directory
 
@@ -1305,7 +1305,7 @@ Formatting the GTF produced by TSEBRA, converting GTF files to FASTA, and assess
 ```bash
 TSEBRA_GTF=tsebra.output.gtf
 TSEBRA_FORMATTED_GTF=tsebra.format.gtf
-QUERY=genome.sc26.softmasked.fasta
+QUERY=genome.sc25.softmasked.fasta
 OUTPUT_DIR=Output_directory
 BUSCO_DIR="$OUTPUT_DIR/BUSCO"			
 BUSCO_DB=run_lophotrochozoa_odb12.2
@@ -1474,7 +1474,7 @@ Scaffold 24 was identified as potential contamination and was removed.
 Scaffold 24 was removed from the genome assembly.
 
 ```bash
-seqkit grep -v -p "scaffold_24" genome.sc26.fasta > genome.sc25.fasta
+seqkit grep -v -p "scaffold_24" genome.sc25.fasta > genome.sc24.fasta
 ```
 
 The best BLAST hit for each scaffold was retained based on the combined score calculated in Section 2.3. Section 1.10 was then repeated to obtain the final genome assembly metrics.
@@ -1510,17 +1510,17 @@ awk '$1=="scaffold_24" {print $2}' scaffold24_transcripts_map.tsv > scaffold24_t
 Scaffold 24 was removed from the GTF produced by TSEBRA in Section 2.2.3.
 
 ```bash
-awk '$1 != "scaffold_24"' tsebra.format.gtf > tsebra.format.sc25.gtf
+awk '$1 != "scaffold_24"' tsebra.format.gtf > tsebra.format.sc24.gtf
 ```
 
 Transcripts corresponding to scaffold 24 were removed from the proteome and CDS files.
 
 ```bash
-seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc25.fasta
+seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc24.fasta
 ```
 
 ```bash
-seqkit grep -v -f scaffold24_transcripts.txt cds.fasta > cds.sc25.fasta
+seqkit grep -v -f scaffold24_transcripts.txt cds.fasta > cds.sc24.fasta
 ```
 
 ### 2.5 Reclassifying repeats 
@@ -1533,29 +1533,29 @@ First, scaffold 24 was removed from the input files.
 EDTA GFF3
 
 ```bash
-awk '$1 != "scaffold_24"' EDTA.TEanno.gff3 > sc25.EDTA.TEanno.gff3
+awk '$1 != "scaffold_24"' EDTA.TEanno.gff3 > sc24.EDTA.TEanno.gff3
 ```
 
 RepeatMasker Dfam output
 
 ```bash
-awk '$5 != "scaffold_24"' RepeatMasker_Dfam.out > sc25_RepeatMasker_Dfam.out
+awk '$5 != "scaffold_24"' RepeatMasker_Dfam.out > sc24_RepeatMasker_Dfam.out
 ```
 
 RepeatMasker RepeatModeler output
 
 ```bash
-awk '$5 != "scaffold_24"' RepeatMasker_RepeatMod.out > sc25_RepeatMasker_RepeatMod.out
+awk '$5 != "scaffold_24"' RepeatMasker_RepeatMod.out > sc24_RepeatMasker_RepeatMod.out
 ```
 
 Final repeat annotation and summary
 
 ```bash
 MERGED_BED=merged_masked_genome.bed
-GENOME_FA=genome.sc25.fasta
-EDTA_GFF=sc25.EDTA.TEanno.gff3
-RM_REPEATMOD=sc25_RepeatMasker_RepeatMod.out
-RM_DFAM=sc25_RepeatMasker_Dfam.out
+GENOME_FA=genome.sc24.fasta
+EDTA_GFF=sc24.EDTA.TEanno.gff3
+RM_REPEATMOD=sc24_RepeatMasker_RepeatMod.out
+RM_DFAM=sc24_RepeatMasker_Dfam.out
 OUTPUT_DIR=Output_directory
 
 mkdir -p "$OUTPUT_DIR"
@@ -1860,7 +1860,7 @@ The quarTeT pipeline was used to identify telomeric and centromeric regions.
 TE annotations generated using EDTA were provided as input for CentroMiner, as recommended by the quarTeT workflow.
 
 ```bash
-QUERY=genome.sc25.fasta
+QUERY=genome.sc24.fasta
 TE_ANNOTATION=EDTA.TEanno.gff3
 SPECIES_TYPE="animal"
 OUTPUT_DIR=Output_directory
@@ -1896,10 +1896,10 @@ Scaffold lengths were obtained from the final genome assembly using samtools fai
 
 ```bash
 #Get lengths using samtools
-samtools faidx genome.sc25.fasta
+samtools faidx genome.sc24.fasta
 
 # Extract scaffolds that represent chromosomes
-awk '{print $1, $2}' genome.sc25.fasta.fai | grep -E "^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21)\b" > scaffolds.txt
+awk '{print $1, $2}' genome.sc24.fasta.fai | grep -E "^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21)\b" > scaffolds.txt
 
 # Add a middle column with "0" for start position
 awk '{print $1 "\t0\t" $2}' scaffolds.txt > karyotype.txt
@@ -2389,7 +2389,7 @@ for (type in repeat_types) {
 InterProScan
 
 ```bash
-QUERY=proteins.sc25.fasta
+QUERY=proteins.sc24.fasta
 OUTPUT_DIR=Output_directory
 PREFIX="Pristina"
 
@@ -2411,7 +2411,7 @@ interproscan.sh \
 eggNOG-mapper
 
 ```bash
-QUERY=proteins.sc25.fasta
+QUERY=proteins.sc24.fasta
 EGGNOG_DB=eggnog_db
 EGGNOG_DIAMOND_DB=eggnog_proteins.dmnd
 OUTPUT_DIR=Output_directory
