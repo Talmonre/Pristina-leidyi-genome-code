@@ -1513,7 +1513,7 @@ Scaffold 24 was removed from the GTF produced by TSEBRA in Section 2.2.3.
 awk '$1 != "scaffold_24"' tsebra.format.gtf > tsebra.format.sc24.gtf
 ```
 
-Transcripts corresponding to scaffold 24 were removed from the proteome and CDS files.
+Transcripts corresponding to scaffold 24 were removed from the proteome and CDS files, and the resulting proteome was assessed using BUSCO.
 
 ```bash
 seqkit grep -v -f scaffold24_transcripts.txt proteins.fasta > proteins.sc24.fasta
