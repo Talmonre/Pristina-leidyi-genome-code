@@ -15,6 +15,16 @@ The analyses were run on the NeSI and University of Otago SLURM clusters. In the
 
 This repository was developed by MAB and KA. MAB contributed to Sections 1.1-1.5 and 1.11-1.13. KA contributed to Sections 1.6-1.10, 1.14-1.16 and 2-3.
 
+## Data availability
+
+- **NCBI BioProject:** [PRJNA1563028](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1563028)
+- **BioSample:** [SAMN65333847](https://www.ncbi.nlm.nih.gov/biosample/SAMN65333847)
+- **Raw reads** (PacBio HiFi and Dovetail Omni-C): NCBI SRA, accessions to follow
+- **Annotated genome assembly:** NCBI GenBank, accession to follow
+- **Supplementary files** (masked genomes, repeat annotation, gene models, eggNOG and InterProScan annotation): FigShare, [doi:10.6084/m9.figshare.35111863](https://doi.org/10.6084/m9.figshare.35111863)
+
+This repository contains the code only.
+
 ## Contents
 
 - [Software](#software)
