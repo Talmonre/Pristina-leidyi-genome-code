@@ -1,5 +1,8 @@
 # An annotated chromosome-level genome assembly of the water nymph worm *Pristina leidyi* (Annelida: Clitellata: Naididae) for studies of regeneration and asexual reproduction.
 
+<img width="193" height="20" alt="image" src="https://github.com/user-attachments/assets/3b51aeeb-4a50-4b7d-a588-93d179abee85" />
+
+
 Code for the genome assembly, annotation and comparative analyses in:
 
 > Achilleos K\*, Álvarez-Campos P\*, Bailie MA, Garcia-Castro H, Solana J, Özpolat BD, Kenny NJ. An annotated chromosome-level genome assembly of the water nymph worm *Pristina leidyi* (Annelida: Clitellata: Naididae) for studies of regeneration and asexual reproduction. \*Co-first authors.
